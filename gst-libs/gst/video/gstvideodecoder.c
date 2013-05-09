@@ -1999,6 +1999,9 @@ gst_video_decoder_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
         g_list_prepend (decoder->priv->current_frame_events, event);
   }
 
+  if (decoder->output_segment.format == GST_FORMAT_UNDEFINED)
+    gst_segment_init (&decoder->output_segment, GST_FORMAT_TIME);
+
   if (decoder->input_segment.rate > 0.0)
     ret = gst_video_decoder_chain_forward (decoder, buf, FALSE);
   else
