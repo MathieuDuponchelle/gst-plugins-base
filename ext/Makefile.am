@@ -48,6 +48,8 @@ else
 THEORA_DIR=
 endif
 
+EPITECH_DIR=epitech
+
 SUBDIRS = \
   $(ALSA_DIR) \
   $(CDPARANOIA_DIR) \
@@ -55,7 +57,8 @@ SUBDIRS = \
   $(OGG_DIR) \
   $(PANGO_DIR) \
   $(THEORA_DIR) \
-  $(VORBIS_DIR)
+  $(VORBIS_DIR) \
+  $(EPITECH_DIR)
 
 DIST_SUBDIRS = \
   alsa \
@@ -64,6 +67,7 @@ DIST_SUBDIRS = \
   ogg \
   pango \
   theora \
-  vorbis
+  vorbis \
+  epitech
 
 include $(top_srcdir)/common/parallel-subdirs.mak
