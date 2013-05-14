@@ -887,6 +887,7 @@ ext/libvisual/Makefile
 ext/ogg/Makefile
 ext/pango/Makefile
 ext/theora/Makefile
+ext/epitech/Makefile
 ext/vorbis/Makefile
 gst-libs/Makefile
 gst-libs/gst/Makefile
