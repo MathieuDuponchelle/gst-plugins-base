@@ -51,7 +51,7 @@ GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS ("video/x-raw, "
-        "format = (string) { I420, Y42B, Y444 }, "
+        "format = (string) { RGB }, "
         "framerate = (fraction) [0/1, MAX], "
         "width = (int) [ 1, MAX ], " "height = (int) [ 1, MAX ]")
     );
@@ -183,7 +183,7 @@ epitech_dec_handle_frame (GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
 
     dec->output_state = state =
         gst_video_decoder_set_output_state (GST_VIDEO_DECODER (dec),
-        GST_VIDEO_FORMAT_I420, info->width, info->height, dec->input_state);
+        GST_VIDEO_FORMAT_RGB, info->width, info->height, dec->input_state);
     gst_video_decoder_negotiate (GST_VIDEO_DECODER (dec));
     dec->format_set = TRUE;
   }
