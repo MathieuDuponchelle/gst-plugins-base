@@ -63,6 +63,7 @@ struct _GstEpitechDec
   GstVideoCodecState *output_state;
 
   gboolean can_crop;
+  gboolean format_set;
 };
 
 struct _GstEpitechDecClass
