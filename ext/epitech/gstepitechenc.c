@@ -48,7 +48,7 @@ GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS ("video/x-raw, "
-        "format = (string) { I420, Y42B, Y444 }, "
+        "format = (string) { RGB }, "
         "framerate = (fraction) [1/MAX, MAX], "
         "width = (int) [ 1, MAX ], " "height = (int) [ 1, MAX ]")
     );
@@ -187,9 +187,13 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
 {
   GstEpitechEnc *enc = GST_EPITECH_ENC (benc);
 
-  frame->output_buffer = gst_buffer_copy (frame->input_buffer);
-
   if (enc->input_state) {
+    GstBuffer *outbuf;
+    GstMapInfo info_in;
+    GstMapInfo info_out;
+    const guint8 *data_in;
+    guint8 *data_out;
+
     if (!enc->format_set) {
       GstCaps *caps;
       caps = gst_caps_new_empty_simple ("video/x-epitech");
@@ -198,6 +202,35 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
       gst_video_encoder_negotiate (benc);
       enc->format_set = TRUE;
     }
+
+    /* Of course the size will have to be dynamically calculated by the algorithm */
+
+    outbuf =
+        gst_video_encoder_allocate_output_buffer (benc,
+        gst_buffer_get_size (frame->input_buffer));
+
+    /* Here we map the buffers. input_buffer contains the RGB data, output_buffer has to be filled */
+    gst_buffer_map (frame->input_buffer, &info_in, GST_MAP_READ);
+    gst_buffer_map (outbuf, &info_out, GST_MAP_WRITE);
+
+    /* Here be dragons (and a char *) */
+
+    data_in = info_in.data;
+    data_out = info_out.data;   /* fill me ... */
+
+    g_print ("the address of out data is in : %p out : %p\n", data_in,
+        data_out);
+
+    g_print ("We have a input buffer of size : %d\n", (int) info_in.size);
+    g_print ("We have a output buffer of size : %d\n", (int) info_out.size);
+
+    /* Here we unmap the buffers. No more access is possible */
+    gst_buffer_unmap (frame->input_buffer, &info_in);
+    gst_buffer_unmap (outbuf, &info_out);
+
+    /* Here the purpose is to do frame->output_buffer = outbuf */
+    /* For now let's just copy the input_buffer */
+    frame->output_buffer = gst_buffer_copy (frame->input_buffer);
 
     gst_video_encoder_finish_frame (benc, frame);
   }
