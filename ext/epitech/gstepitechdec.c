@@ -122,6 +122,7 @@ gst_epitech_dec_init (GstEpitechDec * dec)
   /* input is packetized,
    * but is not marked that way so data gets parsed and keyframes marked */
   gst_video_decoder_set_packetized (GST_VIDEO_DECODER (dec), FALSE);
+  dec->format_set = FALSE;
 }
 
 static gboolean
@@ -136,7 +137,6 @@ epitech_dec_stop (GstVideoDecoder * decoder)
   return TRUE;
 }
 
-/* FIXME : Do we want to handle hard resets differently ? */
 static gboolean
 epitech_dec_reset (GstVideoDecoder * bdec, gboolean hard)
 {
@@ -147,6 +147,10 @@ static GstFlowReturn
 epitech_dec_parse (GstVideoDecoder * decoder,
     GstVideoCodecFrame * frame, GstAdapter * adapter, gboolean at_eos)
 {
+  gint av;
+
+  av = gst_adapter_available (adapter);
+  gst_video_decoder_add_to_frame (decoder, av);
   return gst_video_decoder_have_frame (decoder);
 }
 
@@ -154,15 +158,41 @@ epitech_dec_parse (GstVideoDecoder * decoder,
 static gboolean
 epitech_dec_set_format (GstVideoDecoder * bdec, GstVideoCodecState * state)
 {
+  GstEpitechDec *dec;
+
+  dec = GST_EPITECH_DEC (bdec);
+
+  /* Keep a copy of the input state */
+  if (dec->input_state)
+    gst_video_codec_state_unref (dec->input_state);
+  dec->input_state = gst_video_codec_state_ref (state);
+
   return TRUE;
 }
 
 static GstFlowReturn
 epitech_dec_handle_frame (GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
 {
-  frame->output_buffer = gst_buffer_copy (frame->input_buffer);
+  GstEpitechDec *dec;
 
-  gst_video_decoder_finish_frame (bdec, frame);
+  dec = GST_EPITECH_DEC (bdec);
+
+  if (dec->input_state && !dec->format_set) {
+    GstVideoCodecState *state;
+    GstVideoInfo *info = &dec->input_state->info;
+
+    dec->output_state = state =
+        gst_video_decoder_set_output_state (GST_VIDEO_DECODER (dec),
+        GST_VIDEO_FORMAT_I420, info->width, info->height, dec->input_state);
+    gst_video_decoder_negotiate (GST_VIDEO_DECODER (dec));
+    dec->format_set = TRUE;
+  }
+
+  if (dec->format_set) {
+    frame->output_buffer = gst_buffer_copy (frame->input_buffer);
+    gst_video_decoder_finish_frame (bdec, frame);
+  }
+
   return GST_FLOW_OK;
 }
 

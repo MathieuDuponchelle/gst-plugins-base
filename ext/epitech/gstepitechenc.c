@@ -57,7 +57,7 @@ static GstStaticPadTemplate epitech_enc_src_factory =
 GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("video/x-raw, "
+    GST_STATIC_CAPS ("video/x-epitech, "
         "framerate = (fraction) [1/MAX, MAX], "
         "width = (int) [ 1, MAX ], " "height = (int) [ 1, MAX ]")
     );
@@ -187,15 +187,12 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
 {
   GstEpitechEnc *enc = GST_EPITECH_ENC (benc);
 
-  GST_ERROR ("pts : %" GST_TIME_FORMAT " duration : %" GST_TIME_FORMAT,
-      GST_TIME_ARGS (frame->pts), GST_TIME_ARGS (frame->duration));
-
   frame->output_buffer = gst_buffer_copy (frame->input_buffer);
 
   if (enc->input_state) {
     if (!enc->format_set) {
       GstCaps *caps;
-      caps = gst_caps_new_simple ("video/x-raw", "format", G_TYPE_STRING, "I420", NULL);        /* FIXME HACK */
+      caps = gst_caps_new_empty_simple ("video/x-epitech");
 
       gst_video_encoder_set_output_state (benc, caps, enc->input_state);
       gst_video_encoder_negotiate (benc);
