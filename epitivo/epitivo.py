@@ -27,6 +27,30 @@ class Epitivo:
         self._createUi()
         self._createPipeline()
 
+    def goToEnd(self):
+        if not self.live:
+            self.live = True
+            self.replay_viewer.hide()
+            self.viewer.show()
+
+    def togglePlayback(self):
+        if self.live:
+            if self.pipeline.getState() != Gst.State.PLAYING:
+                self.pipeline.togglePlayback()
+            elif self.replay_pipeline and self.replay_pipeline.getState() == Gst.State.PAUSED:
+                self.expectedState = Gst.State.PLAYING
+                self._maybeStartPipeline(self.pipeline.getPosition() - 2 * Gst.SECOND)
+            else:
+                self.expectedState = Gst.State.PAUSED
+                self._maybeStartPipeline(self.pipeline.getPosition())
+        else:
+            if self.replay_pipeline and self.replay_pipeline.getState() == Gst.State.PAUSED:
+                self.expectedState = Gst.State.PLAYING
+                self._maybeStartPipeline(self.replay_pipeline.getPosition())
+            else:
+                self.expectedState = Gst.State.PAUSED
+                self._maybeStartPipeline(self.replay_pipeline.getPosition())
+
     def _createUi(self):
         self.window = Gtk.Window()
         self.undock_action = Gtk.Action("WindowizeViewer", _("Undock Viewer"),
@@ -46,7 +70,7 @@ class Epitivo:
         self.slider.show()
 
     def _createPipeline(self):
-        pipeline = Gst.parse_launch("videotestsrc pattern=18 ! queue !  tee name=t ! queue name=queue1 ! xvimagesink name=sink_bill_gates t. ! x264enc tune=zerolatency ! matroskamux ! filesink location=test.ogv")
+        pipeline = Gst.parse_launch("v4l2src ! video/x-raw, framerate=30/1 !  queue !  tee name=t ! queue name=queue1 ! xvimagesink name=sink_bill_gates sync=false t. ! x264enc tune=zerolatency ! matroskamux ! filesink location=test.ogv")
         self.pipeline = SimplePipeline(pipeline, pipeline.get_by_name("sink_bill_gates"))
         self.window.connect("draw", self._setPipelineOnViewer)
         self.replay_pipeline = None
@@ -66,8 +90,12 @@ class Epitivo:
         self.window.disconnect_by_func(self._setPipelineOnViewer)
         self.slider.connect("change-value", self._seekThat)
 
-    def _seekThat(self, scale, scroll_type, value):
+    def _maybeStartPipeline(self, value):
+        self.live = False
         if self.replay_pipeline:
+            self.replay_pipeline.setState(self.expectedState)
+            self.viewer.hide()
+            self.replay_viewer.show()
             self.replay_pipeline._pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, value)
             return
         self.viewer.hide()
@@ -75,19 +103,22 @@ class Epitivo:
         self.replay_viewer.show()
         self.replay_viewer.connect("draw", self._setReplayPipelineOnReplayViewer, value)
         self.replay_pipeline = SimplePipeline(pipeline, pipeline.get_by_name("sink_bill_gates"))
-        self.live = False
+
+    def _seekThat(self, scale, scroll_type, value):
+        self.expectedState = Gst.State.PLAYING
+        self._maybeStartPipeline(value)
 
     def _setReplayPipelineOnReplayViewer(self, widget, cr, value):
         self.replay_viewer.setPipeline(self.replay_pipeline)
         self.valueSet = False
         self.replay_pipeline.connect("state-change", self._pipelineStateChangedCb, value)
         self.replay_viewer.disconnect_by_func(self._setReplayPipelineOnReplayViewer)
-        self.replay_pipeline.setState(Gst.State.PLAYING)
+        self.replay_pipeline.setState(self.expectedState)
 #        self.replay_pipeline.connect("position", self._positionCb)
 #        self.replay_pipeline.activatePositionListener()
 
     def _pipelineStateChangedCb(self, pipeline, state, value):
-        if state == Gst.State.PLAYING and not self.valueSet:
+        if (state == Gst.State.PLAYING or state == Gst.State.PAUSED) and not self.valueSet:
             self.replay_pipeline._pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, value)
             self.valueSet = True
 
