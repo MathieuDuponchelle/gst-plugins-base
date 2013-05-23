@@ -178,13 +178,13 @@ class PitiviViewer(Gtk.VBox, Loggable):
 
         self.goToStart_button = Gtk.ToolButton(Gtk.STOCK_MEDIA_PREVIOUS)
         self.goToStart_button.connect("clicked", self._goToStartCb)
-        self.goToStart_button.set_tooltip_text(_("Go to the beginning of the timeline"))
+        self.goToStart_button.set_tooltip_text(_("Not implemented"))
         self.goToStart_button.set_sensitive(False)
         bbox.pack_start(self.goToStart_button, False, True, 0)
 
         self.back_button = Gtk.ToolButton(Gtk.STOCK_MEDIA_REWIND)
         self.back_button.connect("clicked", self._backCb)
-        self.back_button.set_tooltip_text(_("Go back one second"))
+        self.back_button.set_tooltip_text(_("Not implemented"))
         self.back_button.set_sensitive(False)
         bbox.pack_start(self.back_button, False, True, 0)
 
@@ -195,13 +195,13 @@ class PitiviViewer(Gtk.VBox, Loggable):
 
         self.forward_button = Gtk.ToolButton(Gtk.STOCK_MEDIA_FORWARD)
         self.forward_button.connect("clicked", self._forwardCb)
-        self.forward_button.set_tooltip_text(_("Go forward one second"))
+        self.forward_button.set_tooltip_text(_("Not implemented"))
         self.forward_button.set_sensitive(False)
         bbox.pack_start(self.forward_button, False, True, 0)
 
-        self.goToEnd_button = Gtk.ToolButton(Gtk.STOCK_MEDIA_NEXT)
+        self.goToEnd_button = Gtk.ToolButton(Gtk.STOCK_REFRESH)
         self.goToEnd_button.connect("clicked", self._goToEndCb)
-        self.goToEnd_button.set_tooltip_text(_("Go to the end of the timeline"))
+        self.goToEnd_button.set_tooltip_text(_("Go back to live"))
         self.goToEnd_button.set_sensitive(False)
         bbox.pack_start(self.goToEnd_button, False, True, 0)
 
@@ -286,29 +286,21 @@ class PitiviViewer(Gtk.VBox, Loggable):
             self.target.renderbox()
 
     def _playButtonCb(self, unused_button, playing):
-        self.app.pipeline.togglePlayback()
+        self.app.togglePlayback()
 
     def _goToStartCb(self, unused_button):
-        self.seeker.seek(0)
+        raise NotImplementedError
 
     def _backCb(self, unused_button):
         # Seek backwards one second
-        self.seeker.seekRelative(0 - Gst.SECOND)
+        raise NotImplementedError
 
     def _forwardCb(self, unused_button):
         # Seek forward one second
-        self.seeker.seekRelative(Gst.SECOND)
+        raise NotImplementedError
 
     def _goToEndCb(self, unused_button):
-        try:
-            end = self.app.current.pipeline.getDuration()
-        except:
-            self.warning("Couldn't get timeline duration")
-        try:
-            self.seeker.seek(end)
-        except:
-            self.warning("Couldn't seek to the end of the timeline")
-
+        self.app.goToEnd()
     ## public methods for controlling playback
 
     def undock(self):
