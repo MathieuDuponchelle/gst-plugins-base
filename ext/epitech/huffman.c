@@ -155,7 +155,8 @@ calculate_compressed_size (GQueue * priority_queue, huffman_code * code_table)
 }
 
 void *
-huffman_encode (unsigned char *const input_data, unsigned int const input_size)
+huffman_encode (unsigned char *const input_data, unsigned int const input_size,
+    unsigned int *output_size)
 {
   int compressed_size;
   unsigned char *output_data;
@@ -168,8 +169,9 @@ huffman_encode (unsigned char *const input_data, unsigned int const input_size)
 
   build_code_table (root, code_table, current_code, 0);
   compressed_size = calculate_compressed_size (priority_queue, code_table);
+  *output_size = compressed_size;
 
-  output_data = malloc (compressed_size);
+  output_data = g_malloc (compressed_size);
   res = output_data;
 
   // Writing size of original file
@@ -243,7 +245,7 @@ huffman_decode (unsigned char *input_data, unsigned int *output_size)
   int j = 0;
 
   *output_size = *(int *) input_data;
-  output_data = malloc (*output_size);
+  output_data = g_malloc (*output_size);
   input_data += sizeof (int);
 
   // Reading size of frequency table
