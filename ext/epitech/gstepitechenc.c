@@ -38,6 +38,7 @@
 #include <gst/video/video.h>
 #include <gst/video/gstvideometa.h>
 
+#include "huffman.h"
 #include "gstepitechenc.h"
 
 #define GST_CAT_DEFAULT epitechenc_debug
@@ -217,6 +218,8 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
 
     data_in = info_in.data;
     data_out = info_out.data;   /* fill me ... */
+
+    huffman_encode ((unsigned char *) data_in, info_in.size);
 
     g_print ("the address of out data is in : %p out : %p\n", data_in,
         data_out);
