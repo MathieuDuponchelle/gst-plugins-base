@@ -16,14 +16,16 @@ static void
 free_tree (huffman_node * node)
 {
   if (node) {
+    if (node->left) {
+      free_tree (node->left);
+      node->left = 0;
+    }
+    if (node->right) {
+      free_tree (node->right);
+      node->right = 0;
+    }
     if (node->left == 0 && node->right == 0)
       free (node);
-    else {
-      if (node->left)
-        free_tree (node->left);
-      if (node->right)
-        free_tree (node->right);
-    }
   }
 }
 
@@ -42,7 +44,7 @@ build_priority_queue (unsigned char *const input_data,
 {
 
   GQueue *priority_queue = g_queue_new ();
-  char values[256] = { 0 };
+  double values[256] = { 0 };
 
   for (int i = 0; i < input_size; ++i)
     ++values[input_data[i]];
@@ -288,6 +290,30 @@ huffman_decode (unsigned char *input_data, unsigned int *output_size)
 int
 main (int argc, char *argv[])
 {
+  /*
+     char* file_path = "bmp.bmp";
+     int file_fd = open(file_path, O_RDONLY);
+     struct stat file_stat;
+     stat(file_path, &file_stat);
+     void* mapped_file = mmap(0, file_stat.st_size, PROT_READ, MAP_SHARED, file_fd, 0);
+     printf("%d\n", file_stat.st_size);
+
+     int size;
+     void* out = huffman_encode(mapped_file, file_stat.st_size);
+     huffman_decode(out, &size);
+   */
+  char *j = "j'aime aller sur le bord de l'eau les jeudis ou les jours impairs";
+  void *out;
+  unsigned char *in = 0;
+  int size = 0;
+  out = huffman_encode (j, strlen (j));
+  in = huffman_decode (out, &size);
+  for (int i = 0; i < size; ++i) {
+    printf ("%c", *(char *) in);
+    ++in;
+  }
+  free (out);
+  return 0;
 }
 
 #endif
