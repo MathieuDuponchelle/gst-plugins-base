@@ -189,11 +189,10 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
   GstEpitechEnc *enc = GST_EPITECH_ENC (benc);
 
   if (enc->input_state) {
-    GstBuffer *outbuf;
     GstMapInfo info_in;
-    GstMapInfo info_out;
     const guint8 *data_in;
-    guint8 *data_out;
+    void *res;
+    unsigned int res_size;
 
     if (!enc->format_set) {
       GstCaps *caps;
@@ -203,37 +202,28 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
       gst_video_encoder_negotiate (benc);
       enc->format_set = TRUE;
     }
-
-    /* Of course the size will have to be dynamically calculated by the algorithm */
-
-    outbuf =
-        gst_video_encoder_allocate_output_buffer (benc,
-        gst_buffer_get_size (frame->input_buffer));
+    //    GST_ERROR("timestamp : %" GST_TIME_FORMAT, GST_TIME_ARGS(GST_BUFFER_TIMESTAMP(frame->input_buffer)));
 
     /* Here we map the buffers. input_buffer contains the RGB data, output_buffer has to be filled */
     gst_buffer_map (frame->input_buffer, &info_in, GST_MAP_READ);
-    gst_buffer_map (outbuf, &info_out, GST_MAP_WRITE);
 
     /* Here be dragons (and a char *) */
 
     data_in = info_in.data;
-    data_out = info_out.data;   /* fill me ... */
 
-    huffman_encode ((unsigned char *) data_in, info_in.size);
-
-    g_print ("the address of out data is in : %p out : %p\n", data_in,
-        data_out);
-
-    g_print ("We have a input buffer of size : %d\n", (int) info_in.size);
-    g_print ("We have a output buffer of size : %d\n", (int) info_out.size);
+    res = huffman_encode ((unsigned char *) data_in, info_in.size, &res_size);
 
     /* Here we unmap the buffers. No more access is possible */
     gst_buffer_unmap (frame->input_buffer, &info_in);
-    gst_buffer_unmap (outbuf, &info_out);
 
     /* Here the purpose is to do frame->output_buffer = outbuf */
     /* For now let's just copy the input_buffer */
-    frame->output_buffer = gst_buffer_copy (frame->input_buffer);
+    frame->output_buffer = gst_buffer_new_wrapped (res, res_size);
+
+    GST_BUFFER_TIMESTAMP (frame->output_buffer) =
+        GST_BUFFER_TIMESTAMP (frame->input_buffer);
+    GST_BUFFER_DURATION (frame->output_buffer) =
+        GST_BUFFER_DURATION (frame->input_buffer);
 
     gst_video_encoder_finish_frame (benc, frame);
   }

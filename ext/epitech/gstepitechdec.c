@@ -37,6 +37,8 @@
 #include <gst/video/gstvideometa.h>
 #include <gst/video/gstvideopool.h>
 
+#include "huffman.h"
+
 #define GST_CAT_DEFAULT epitechdec_debug
 GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 GST_DEBUG_CATEGORY_EXTERN (GST_CAT_PERFORMANCE);
@@ -189,7 +191,28 @@ epitech_dec_handle_frame (GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
   }
 
   if (dec->format_set) {
-    frame->output_buffer = gst_buffer_copy (frame->input_buffer);
+    GstMapInfo info_in;
+    const guint8 *data_in;
+    void *res;
+    unsigned int res_size;
+
+    gst_buffer_map (frame->input_buffer, &info_in, GST_MAP_READ);
+
+    data_in = info_in.data;
+
+    res = huffman_decode ((unsigned char *) data_in, &res_size);
+
+    /* Here we unmap the buffers. No more access is possible */
+    gst_buffer_unmap (frame->input_buffer, &info_in);
+
+    frame->output_buffer = gst_buffer_new_wrapped (res, res_size);
+
+    GST_BUFFER_TIMESTAMP (frame->output_buffer) =
+        GST_BUFFER_TIMESTAMP (frame->input_buffer);
+    GST_BUFFER_DURATION (frame->output_buffer) =
+        GST_BUFFER_DURATION (frame->input_buffer);
+    GST_BUFFER_PTS (frame->output_buffer) =
+        GST_BUFFER_TIMESTAMP (frame->input_buffer);
     gst_video_decoder_finish_frame (bdec, frame);
   }
 

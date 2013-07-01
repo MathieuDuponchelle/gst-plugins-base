@@ -26,7 +26,7 @@ struct __attribute__((packed)) freq
 	unsigned long weight;
 };
 
-void* huffman_encode(unsigned char* const input_data, unsigned int const input_size);
+void* huffman_encode(unsigned char* const input_data, unsigned int const input_size, unsigned int *output_size);
 unsigned char* huffman_decode(unsigned char* input_data, unsigned int *output_size);
 
 #endif
