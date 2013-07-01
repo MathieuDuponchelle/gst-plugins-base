@@ -5,7 +5,8 @@ noinst_HEADERS = gstepitechenc.h \
 
 libgstepitech_la_SOURCES = gstepitech.c \
 			  gstepitechenc.c \
-			  gstepitechdec.c
+			  gstepitechdec.c \
+			  huffman.c
 
 libgstepitech_la_CFLAGS = $(GST_PLUGINS_BASE_CFLAGS) $(GST_BASE_CFLAGS) $(GST_CFLAGS)
 libgstepitech_la_LIBADD = \
