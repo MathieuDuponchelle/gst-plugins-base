@@ -111,6 +111,7 @@ build_huffman_tree (GQueue * priority_queue)
     internal_node->weight = node0->weight + node1->weight;
     internal_node->symbol = 0;
     g_queue_push_head (priority_queue, internal_node);
+    g_queue_sort (priority_queue, compare_ulong_function, 0);
   }
   return g_queue_pop_head (priority_queue);
 }
