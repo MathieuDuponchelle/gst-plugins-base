@@ -236,7 +236,8 @@ huffman_creer_dictionnaire (unsigned char *code, short index, short pos)
  * nécessaire à la construction de l'arbre
  * */
 void *
-huffman_compacter (unsigned char *src, unsigned int size)
+huffman_compacter (unsigned char *src, unsigned int size,
+    unsigned int *output_size)
 {
   int i, octet_r, bit_r, bit_count, bit_w;
   unsigned long nbre_octets;
@@ -377,6 +378,7 @@ huffman_compacter (unsigned char *src, unsigned int size)
      #endif
    */
   //ADDED
+  *output_size = (unsigned char *) dst - (unsigned char *) original_offset;
   return original_offset;
 }
 
@@ -465,7 +467,6 @@ huffman_decompacter (unsigned char *src, unsigned int *size)
   return original_offset;
 }
 
-#define ENABLE_MAIN
 #ifdef ENABLE_MAIN
 #include <sys/types.h>
 #include <sys/stat.h>

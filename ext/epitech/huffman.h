@@ -36,6 +36,6 @@ short huffman_calculer_frequences (unsigned char *, unsigned long *,
 short huffman_lire_frequences (unsigned char *);
 short huffman_creer_arbre (short);
 void huffman_creer_dictionnaire (unsigned char *, short, short);
-void *huffman_compacter (unsigned char *, unsigned int size);
+void *huffman_compacter (unsigned char *, unsigned int, unsigned int *);
 void *huffman_decompacter (unsigned char *, unsigned int *size);
 #endif
