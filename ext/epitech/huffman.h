@@ -1,32 +1,41 @@
 #ifndef		__HUFFMAN_H
 #define		__HUFFMAN_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-typedef struct node huffman_node;
-typedef struct code huffman_code;
-typedef struct freq huffman_freq;
+#include <sys/time.h>
 
-struct node
+#define CODE_MAX_LEN 32
+//#define BUF_LEN 262144
+#define LOL_HARD_MALLOC 512
+
+/* Definition des structures */
+struct arbre
 {
-	unsigned char symbol;
-	unsigned long weight;
-	huffman_node* left;
-	huffman_node* right;
+  short branche0;
+  short branche1;
 };
 
-struct code
+struct arbre_data
 {
-	unsigned char length;
-	char code[32];
+  unsigned long frequence;
+  short index_suivant;
 };
 
-struct __attribute__((packed)) freq
+struct dictionnaire
 {
-	unsigned char symbol;
-	unsigned long weight;
+  unsigned char taille;
+  char code[CODE_MAX_LEN];
 };
 
-void* huffman_encode(unsigned char* const input_data, unsigned int const input_size, unsigned int *output_size);
-unsigned char* huffman_decode(unsigned char* input_data, unsigned int *output_size);
-
+/* Prototypes des fonctions */
+short huffman_calculer_frequences (unsigned char *, unsigned long *,
+    unsigned short *, unsigned int size);
+short huffman_lire_frequences (unsigned char *);
+short huffman_creer_arbre (short);
+void huffman_creer_dictionnaire (unsigned char *, short, short);
+void *huffman_compacter (unsigned char *, unsigned int size);
+void *huffman_decompacter (unsigned char *, unsigned int *size);
 #endif
