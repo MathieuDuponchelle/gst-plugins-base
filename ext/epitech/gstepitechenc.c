@@ -192,7 +192,7 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
     GstMapInfo info_in;
     const guint8 *data_in;
     void *res;
-    unsigned int res_size;
+    unsigned int out_size;
 
     if (!enc->format_set) {
       GstCaps *caps;
@@ -211,14 +211,15 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
 
     data_in = info_in.data;
 
-    res = huffman_encode ((unsigned char *) data_in, info_in.size, &res_size);
+    res =
+        huffman_compacter ((unsigned char *) data_in, info_in.size, &out_size);
 
     /* Here we unmap the buffers. No more access is possible */
     gst_buffer_unmap (frame->input_buffer, &info_in);
 
     /* Here the purpose is to do frame->output_buffer = outbuf */
     /* For now let's just copy the input_buffer */
-    frame->output_buffer = gst_buffer_new_wrapped (res, res_size);
+    frame->output_buffer = gst_buffer_new_wrapped (res, out_size);
 
     GST_BUFFER_TIMESTAMP (frame->output_buffer) =
         GST_BUFFER_TIMESTAMP (frame->input_buffer);
