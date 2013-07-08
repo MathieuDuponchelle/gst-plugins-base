@@ -213,6 +213,9 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
 
     res = huffman_encode ((unsigned char *) data_in, info_in.size, &res_size);
 
+    GST_ERROR ("Encoded buffer, original / compressed %u %u",
+        (unsigned int) info_in.size, res_size);
+
     /* Here we unmap the buffers. No more access is possible */
     gst_buffer_unmap (frame->input_buffer, &info_in);
 
