@@ -1,321 +1,710 @@
 #include <stdio.h>
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <string.h>
-
-
-#include <glib.h>
 #include <stdlib.h>
+#include <limits.h>
+#include <string.h>
+#include <glib.h>
+#include "bitop256.h"
+#include "getopt.h"
 #include "huffman.h"
 
-static void
-free_tree (huffman_node * node)
+#if (UCHAR_MAX != 0xFF)
+#error This program expects unsigned char to be 1 byte
+#endif /*  */
+    
+#if (USHRT_MAX != 0xFFFF)
+#error This program expects unsigned short to be 2 bytes
+#endif /*  */
+    
+#if (UINT_MAX != 0xFFFFFFFF)
+#error This program expects unsigned int to be 4 bytes
+#endif /*  */
+    
+/* system dependent types */ 
+typedef unsigned char byte_t;   /* unsigned 8 bit */
+typedef unsigned char code_t;  /* unsigned 8 bit for character codes */
+typedef unsigned int count_t;  /* unsigned 32 bit for character counts */
+ 
+/* breaks count_t into array of byte_t */ 
+typedef union count_byte_t 
 {
-  if (node) {
-    if (node->left) {
-      free_tree (node->left);
-      node->left = 0;
-    }
-    if (node->right) {
-      free_tree (node->right);
-      node->right = 0;
-    }
-    if (node->left == 0 && node->right == 0)
-      free (node);
-  }
-}
-
-static gint
-compare_ulong_function (gconstpointer a, gconstpointer b, gpointer user_data)
+  count_t count;
+  byte_t byte[sizeof (count_t)];
+}
+count_byte_t;
+ typedef struct huffman_node_t 
 {
-  if (((huffman_node *) a)->weight - ((huffman_node *) b)->weight)
-    return ((huffman_node *) a)->weight - ((huffman_node *) b)->weight;
-  else
-    return ((huffman_node *) a)->symbol - ((huffman_node *) b)->symbol;
-}
-
-static GQueue *
-build_priority_queue (unsigned char *const input_data,
-    unsigned int const input_size)
+  int value;                   /* character(s) represented by this entry */
+   count_t count;              /* number of occurrences of value (probability) */
+  char ignore;                /* TRUE -> already handled or no need to handle */
+   int level;                  /* depth in tree (root is 0) */
+  
+    /***********************************************************************
+    *  pointer to children and parent.
+    *  NOTE: parent is only useful if non-recursive methods are used to
+    *        search the huffman tree.
+    ***********************************************************************/ 
+  struct huffman_node_t *left, *right, *parent;
+ } huffman_node_t;
+ typedef struct code_list_t 
 {
-
-  GQueue *priority_queue = g_queue_new ();
-  double values[256] = { 0 };
-
-  for (int i = 0; i < input_size; ++i)
-    ++values[input_data[i]];
-
-  for (int i = 0; i < 256; ++i) {
-    if (values[i] > 0) {
-      huffman_node *new_node = malloc (sizeof (huffman_node));
-      new_node->symbol = (unsigned char) i;
-      new_node->weight = values[i];
-      new_node->left = 0;
-      new_node->right = 0;
-      g_queue_push_head (priority_queue, new_node);
-    }
-  }
-
-  g_queue_sort (priority_queue, compare_ulong_function, 0);
-
-  return priority_queue;
-}
-
-static GQueue *
-restore_priority_queue (unsigned char *input_data,
-    unsigned int const input_size)
-{
-  GQueue *priority_queue = g_queue_new ();
-
-  for (int i = 0; i < input_size; ++i) {
-    huffman_node *new_node = malloc (sizeof (huffman_node));
-    huffman_freq *freq = (void *) input_data;
-
-    new_node->symbol = freq->symbol;
-    new_node->weight = freq->weight;
-    new_node->left = 0;
-    new_node->right = 0;
-    g_queue_push_head (priority_queue, new_node);
-    input_data += sizeof (huffman_freq);
-  }
-
-  g_queue_sort (priority_queue, compare_ulong_function, 0);
-
-  return priority_queue;
-}
-
-/*
- *
- * 1.Create a leaf node for each symbol and add it to the priority queue.
- * 2.While there is more than one node in the queue:
- * 	-Remove the two nodes of highest priority (lowest probability) from the queue
- * 	-Create a new internal node with these two nodes as children and with probability equal to the sum of the two nodes' probabilities.
- * 	-Add the new node to the queue.
- * 3.The remaining node is the root node and the tree is complete.
- *
- */
-static huffman_node *
-build_huffman_tree (GQueue * priority_queue)
-{
-  while (g_queue_get_length (priority_queue) > 1) {
-    huffman_node *node0 = g_queue_pop_head (priority_queue);
-    huffman_node *node1 = g_queue_pop_head (priority_queue);
-    huffman_node *internal_node = malloc (sizeof (huffman_node));
-
-    internal_node->left = node0;
-    internal_node->right = node1;
-    internal_node->weight = node0->weight + node1->weight;
-    internal_node->symbol = 0;
-    g_queue_push_head (priority_queue, internal_node);
-  }
-  return g_queue_pop_head (priority_queue);
-}
-
-static void
-build_code_table (huffman_node * root, huffman_code * code,
-    unsigned char *current_code, int pos)
-{
-  if (root->left == 0 && root->right == 0) {
-    memcpy (&code[root->symbol].code, current_code, sizeof (long));
-    code[root->symbol].length = pos;
-  } else {
-    if (root->left != 0) {
-      current_code[pos / 8] &= ~(0x80 >> (pos % 8));
-      build_code_table (root->left, code, current_code, pos + 1);
-    }
-    if (root->right != 0) {
-      current_code[pos / 8] |= 0x80 >> (pos % 8);
-      build_code_table (root->right, code, current_code, pos + 1);
-    }
-  }
-}
-
-static int
-calculate_compressed_size (GQueue * priority_queue, huffman_code * code_table)
-{
-  int res = 0;
-
-  // Space for frequency list and the size of it plus size of original data
-  // and the output data.
-  for (unsigned int i = 0; i < g_queue_get_length (priority_queue); ++i) {
-    huffman_node *node = g_queue_peek_nth (priority_queue, i);
-    res += (code_table[node->symbol].length * node->weight);
-  }
-  if (res % 8)
-    res += 8;
-  res /= 8;
-  res +=
-      (sizeof (char) + sizeof (long)) * g_queue_get_length (priority_queue) +
-      (3 * sizeof (int));
-  return res;
-}
-
-void *
+  byte_t codeLen;              /* number of bits used in code (1 - 255) */
+  code_t code[32];             /* code used for symbol (left justified) */
+} code_list_t;
+ typedef enum 
+{ BUILD_TREE, COMPRESS, DECOMPRESS 
+} MODES;
+ 
+#define NONE    -1
+    
+#define COUNT_T_MAX     UINT_MAX    /* based on count_t being unsigned int */
+    
+#define COMPOSITE_NODE      -1      /* node represents multiple characters */
+#define NUM_CHARS           256     /* 256 possible 1-byte symbols */
+    
+#define max(a, b) ((a)>(b)?(a):(b))
+    
+/* allocation/deallocation routines */ 
+    huffman_node_t * AllocHuffmanNode (int value);
+huffman_node_t * AllocHuffmanCompositeNode (huffman_node_t * left,
+    huffman_node_t * right);
+void FreeHuffmanTree (huffman_node_t * ht);
+ 
+/* build and display tree */ 
+    huffman_node_t * GenerateTreeFromFile (huffman_node_t ** huffmanArray,
+    unsigned char *buffer, count_t total);
+huffman_node_t * BuildHuffmanTree (huffman_node_t ** ht, int elements);
+ unsigned char *readFile (const char *name, count_t * count);
+int getHeaderSize (huffman_node_t * ht);
+void dumpToFile (unsigned char *buffer, const char *fName, count_t count);
+unsigned char *EncodeFile (huffman_node_t * ht, unsigned char *buffer,
+    count_t size, count_t * encoded_size);
+unsigned char *DecodeFile (huffman_node_t ** ht, unsigned char *encoded_buffer,
+    count_t encoded_size, count_t * decoded_size);
+void MakeCodeList (huffman_node_t * ht, code_list_t * cl);
+ 
+/* reading/writing tree to file */ 
+void WriteHeader (huffman_node_t * ht, unsigned char *buf);
+count_t ReadHeader (huffman_node_t ** ht, unsigned char *encoded_buffer,
+    count_t encoded_size, count_t * total);
+  void *
 huffman_encode (unsigned char *const input_data, unsigned int const input_size,
-    unsigned int *output_size)
+    unsigned int *output_size) 
 {
-  int compressed_size;
-  unsigned char *output_data;
-  GQueue *priority_queue = build_priority_queue (input_data, input_size);
-  huffman_node *root = build_huffman_tree (g_queue_copy (priority_queue));
-  huffman_code code_table[256] = { {0} };
-  int size_of_priority_queue = g_queue_get_length (priority_queue);
-  unsigned char current_code[32] = { 0 };
-  void *res;
+  huffman_node_t * huffmanTree;        /* root of huffman tree */
+  void *encoded_buffer;
+  huffman_node_t * huffmanArray[NUM_CHARS];
+   huffmanTree = GenerateTreeFromFile (huffmanArray, input_data, input_size);
+  encoded_buffer =
+      EncodeFile (huffmanTree, input_data, input_size, output_size);
+  return encoded_buffer;
+}
 
-  build_code_table (root, code_table, current_code, 0);
-  compressed_size = calculate_compressed_size (priority_queue, code_table);
-  *output_size = compressed_size;
-
-  output_data = g_malloc (compressed_size);
-  res = output_data;
-
-  // Writing size of original file
-  memcpy (output_data, &input_size, sizeof (int));
-  output_data += sizeof (int);
-
-  // Writing size of frequency table
-  memcpy (output_data, &size_of_priority_queue, sizeof (int));
-  output_data += sizeof (int);
-
-  // Writing size of the output file
-  memcpy (output_data, &compressed_size, sizeof (int));
-  output_data += sizeof (int);
-
-  // Writing frequency table
-  for (unsigned int i = 0; i < size_of_priority_queue; ++i) {
-    huffman_node *node = g_queue_peek_nth (priority_queue, i);
-    huffman_freq *freq = (huffman_freq *) output_data;
-    freq->symbol = node->symbol;
-    freq->weight = node->weight;
-
-    output_data += sizeof (huffman_freq);
-  }
-
-  // Writing compressed data
-  for (int i = 0; i < input_size; ++i) {
-    unsigned char byte_to_encode = input_data[i];
-    huffman_code corresponding_code = code_table[byte_to_encode];
-    static char byte = 0;
-    int j = 0;
-    unsigned char code_com = 0x80;
-
-    while (corresponding_code.length != 0) {
-      static unsigned char com = 0x80;
-
-      while (com != 0 && code_com != 0 && corresponding_code.length != 0) {
-        if (corresponding_code.code[j] & code_com)
-          byte |= com;
-        else
-          byte &= ~com;
-        --corresponding_code.length;
-        com >>= 1;
-        code_com >>= 1;
-      }
-      *output_data = byte;
-      if (com == 0) {
-        byte = 0x00;
-        ++output_data;
-        com = 0x80;
-      }
-      if (code_com == 0 && corresponding_code.length != 0) {
-        ++j;
-        code_com = 0x80;
-      }
-    }
-  }
-
-  free_tree (root);
-  g_queue_free (priority_queue);
-  return res;
-}
-
-unsigned char *
-huffman_decode (unsigned char *input_data, unsigned int *output_size)
+ void *
+huffman_decode (unsigned char *input_data, unsigned int input_size,
+    unsigned int *output_size) 
 {
-  // Reading size of output data
-  unsigned char *output_data;
-  int size_freq_table, compressed_size;
-  GQueue *priority_queue;
-  huffman_node *root, *curr;
-  int j = 0;
+  unsigned char *decoded_buffer;
+  huffman_node_t * huffmanArray[NUM_CHARS];
+   decoded_buffer =
+      DecodeFile (huffmanArray, input_data, input_size, output_size);
+  return decoded_buffer;
+}
 
-  *output_size = *(int *) input_data;
-  output_data = g_malloc (*output_size);
-  input_data += sizeof (int);
+ int
+main (int argc, char *argv[]) 
+{
+  count_t count = 0;
+  unsigned char *buffer = readFile ("src.rgb", &count);
+  unsigned char *encoded_buffer;
+  count_t encoded_size;
+  unsigned char *decoded_buffer;
+  count_t decoded_size;
+   encoded_buffer = huffman_encode (buffer, count, &encoded_size);
+  decoded_buffer =
+      huffman_decode (encoded_buffer, encoded_size, &decoded_size);
+   dumpToFile (decoded_buffer, "srcd.rgb", decoded_size);
+   return (0);
+}
 
-  // Reading size of frequency table
-  size_freq_table = *(int *) input_data;
-  input_data += sizeof (int);
+ huffman_node_t * GenerateTreeFromFile (huffman_node_t ** huffmanArray,
+    unsigned char *buffer, count_t total) 
+{
+  huffman_node_t * huffmanTree;        /* root of huffman tree */
+  int c;
+  count_t i = 0;
+  count_t count = 0;
+   
+      /* allocate array of leaves for all possible characters */ 
+      for (c = 0; c < NUM_CHARS; c++)
+     {
+    huffmanArray[c] = AllocHuffmanNode (c);
+    }
+   
+      /* count occurrence of each character */ 
+      while (i < total)
+     {
+    c = buffer[i];
+    if (count < COUNT_T_MAX)
+       {
+      count++;
+       
+          /* increment count for character and include in tree */ 
+          huffmanArray[c]->count++;     /* check for overflow */
+      huffmanArray[c]->ignore = FALSE;
+      }
+    
+    else
+       {
+      fprintf (stderr,
+          "Number of characters in file is too large to count.\n");
+      exit (EXIT_FAILURE);
+      }
+    i++;
+    }
+   
+      /* put array of leaves into a huffman tree */ 
+      huffmanTree = BuildHuffmanTree (huffmanArray, NUM_CHARS);
+   return (huffmanTree);
+}
 
-  // Reading size of compressed file
-  compressed_size = *(int *) input_data;
-  input_data += sizeof (int);
+ huffman_node_t * AllocHuffmanNode (int value) 
+{
+  huffman_node_t * ht;
+   ht = (huffman_node_t *) (malloc (sizeof (huffman_node_t)));
+   if (ht != NULL)
+     {
+    ht->value = value;
+    ht->ignore = TRUE;         /* will be FALSE if one is found */
+     
+        /* at this point, the node is not part of a tree */ 
+        ht->count = 0;
+    ht->level = 0;
+    ht->left = NULL;
+    ht->right = NULL;
+    ht->parent = NULL;
+    }
+  
+  else
+     {
+    perror ("Allocate Node");
+    exit (EXIT_FAILURE);
+    }
+   return ht;
+}
 
-  priority_queue = restore_priority_queue (input_data, size_freq_table);
-  input_data += size_freq_table * sizeof (huffman_freq);
+ huffman_node_t * AllocHuffmanCompositeNode (huffman_node_t * left,
+    huffman_node_t * right) 
+{
+  huffman_node_t * ht;
+   ht = (huffman_node_t *) (malloc (sizeof (huffman_node_t)));
+   if (ht != NULL)
+     {
+    ht->value = COMPOSITE_NODE;        /* represents multiple chars */
+    ht->ignore = FALSE;
+    ht->count = left->count + right->count;    /* sum of children */
+    ht->level = max (left->level, right->level) + 1;
+     
+        /* attach children */ 
+        ht->left = left;
+    ht->left->parent = ht;
+    ht->right = right;
+    ht->right->parent = ht;
+    ht->parent = NULL;
+    }
+  
+  else
+     {
+    perror ("Allocate Composite");
+    exit (EXIT_FAILURE);
+    }
+   return ht;
+}
 
-  compressed_size -=
-      (3 * sizeof (int)) + (size_freq_table * sizeof (huffman_freq));
+ void
+FreeHuffmanTree (huffman_node_t * ht) 
+{
+  if (ht->left != NULL)
+     {
+    FreeHuffmanTree (ht->left);
+    }
+   if (ht->right != NULL)
+     {
+    FreeHuffmanTree (ht->right);
+    }
+   free (ht);
+}
 
-  root = build_huffman_tree (g_queue_copy (priority_queue));
-  curr = root;
+ static int
+FindMinimumCount (huffman_node_t ** ht, int elements) 
+{
+  int i;                       /* array index */
+  int currentIndex = NONE;     /* index with lowest count seen so far */
+  int currentCount = INT_MAX;  /* lowest count seen so far */
+  int currentLevel = INT_MAX;  /* level of lowest count seen so far */
+   
+      /* sequentially search array */ 
+      for (i = 0; i < elements; i++)
+     {
+    
+        /* check for lowest count (or equally as low, but not as deep) */ 
+        if ((ht[i] != NULL) && (!ht[i]->ignore) && 
+        (ht[i]->count < currentCount || 
+            (ht[i]->count == currentCount && ht[i]->level < currentLevel)))
+       {
+      currentIndex = i;
+      currentCount = ht[i]->count;
+      currentLevel = ht[i]->level;
+      }
+    }
+  return currentIndex;
+}
 
-  // Reading compressed data
-  for (int i = 0; i < compressed_size; ++i) {
-    unsigned char byte_to_decode = input_data[i];
+ huffman_node_t * BuildHuffmanTree (huffman_node_t ** ht, int elements) 
+{
+  int min1, min2;              /* two nodes with the lowest count */
+   
+      /* keep looking until no more nodes can be found */ 
+      for (;;)
+     {
+    
+        /* find node with lowest count */ 
+        min1 = FindMinimumCount (ht, elements);
+     if (min1 == NONE)
+       {
+      
+          /* no more nodes to combine */ 
+          break;
+      }
+     ht[min1]->ignore = TRUE; /* remove from consideration */
+     
+        /* find node with second lowest count */ 
+        min2 = FindMinimumCount (ht, elements);
+     if (min2 == NONE)
+       {
+      
+          /* no more nodes to combine */ 
+          break;
+      }
+     ht[min2]->ignore = TRUE; /* remove from consideration */
+     
+        /* combine nodes into a tree */ 
+        ht[min1] = AllocHuffmanCompositeNode (ht[min1], ht[min2]);
+    ht[min2] = NULL;
+    }
+   return ht[min1];
+}
 
-    for (unsigned char com = 0x80; com != 0; com >>= 1) {
-      if (byte_to_decode & com)
-        curr = curr->right;
+ static int
+getPayloadSize (unsigned char *buffer, code_list_t codeList[], count_t count) 
+{
+  int c, i, bitCount, j;
+  char bitBuffer;
+  int size;
+   
+      /* write encoded file 1 byte at a time */ 
+      bitBuffer = 0;
+  bitCount = 0;
+   j = 0;
+  size = 0;
+   while (j < count)
+     {
+    c = (int) buffer[j];
+    
+        /* shift in bits */ 
+        for (i = 0; i < codeList[c].codeLen; i++)
+       {
+      bitCount++;
+      bitBuffer = (bitBuffer << 1) | (TestBit256 (codeList[c].code, i) == 1);
+       if (bitCount == 8)
+         {
+        bitCount = 0;
+        size += 1;
+        }
+      }
+    j += 1;
+    }
+   
+      /* now handle spare bits */ 
+      if (bitCount != 0)
+     {
+    bitBuffer <<= 8 - bitCount;
+    size += 1;
+    }
+   return size;
+}
+
+ unsigned char *
+EncodeFile (huffman_node_t * ht, unsigned char *buffer, count_t count,
+    count_t * encoded_size) 
+{
+  code_list_t codeList[NUM_CHARS];     /* table for quick encode */
+  int c, i, bitCount, j, k, header_size, payload_size;
+  char bitBuffer;
+  unsigned char *buf;
+   MakeCodeList (ht, codeList);       /* convert code to easy to use list */
+   header_size = getHeaderSize (ht);
+  payload_size = getPayloadSize (buffer, codeList, count);
+  buf = g_malloc (sizeof (unsigned char) * (header_size + payload_size));
+  *encoded_size = header_size + payload_size;
+   WriteHeader (ht, buf);
+   
+      /* write encoded file 1 byte at a time */ 
+      bitBuffer = 0;
+  bitCount = 0;
+   j = 0;
+  k = header_size;
+   while (j < count)
+     {
+    c = (int) buffer[j];
+    
+        /* shift in bits */ 
+        for (i = 0; i < codeList[c].codeLen; i++)
+       {
+      bitCount++;
+      bitBuffer = (bitBuffer << 1) | (TestBit256 (codeList[c].code, i) == 1);
+       if (bitCount == 8)
+         {
+        
+            /* we have a byte in the buffer */ 
+            buf[k] = bitBuffer;
+        bitCount = 0;
+        k += 1;
+        }
+      }
+    j += 1;
+    }
+   
+      /* now handle spare bits */ 
+      if (bitCount != 0)
+     {
+    bitBuffer <<= 8 - bitCount;
+    buf[k] = bitBuffer;
+    k += 1;
+    }
+   return buf;
+}
+
+ void
+MakeCodeList (huffman_node_t * ht, code_list_t * cl) 
+{
+  code_t code[32];
+  byte_t depth = 0;
+   ClearAll256 (code);
+   for (;;)
+     {
+    
+        /* follow this branch all the way left */ 
+        while (ht->left != NULL)
+       {
+      LeftShift256 (code, 1);
+      ht = ht->left;
+      depth++;
+      }
+     if (ht->value != COMPOSITE_NODE)
+       {
+      
+          /* enter results in list */ 
+          cl[ht->value].codeLen = depth;
+      Copy256 (cl[ht->value].code, code);
+       
+          /* now left justify code */ 
+          LeftShift256 (cl[ht->value].code, 256 - depth);
+      }
+     while (ht->parent != NULL)
+       {
+      if (ht != ht->parent->right)
+         {
+        
+            /* try the parent's right */ 
+            code[31] |= 0x01;
+        ht = ht->parent->right;
+        break;
+        }
+      
       else
-        curr = curr->left;
-      if (curr->left == 0 && curr->right == 0) {
-        output_data[j] = curr->symbol;
-        curr = root;
-        ++j;
-      }
-    }
-  }
+         {
+        
+            /* parent's right tried, go up one level yet */ 
+            depth--;
+        RightShift256 (code, 1);
+        ht = ht->parent;
+        }
+      }
+     if (ht->parent == NULL)
+       {
+      
+          /* we're at the top with nowhere to go */ 
+          break;
+      }
+    }
+}
 
-  free_tree (root);
-  g_queue_free (priority_queue);
-  return output_data;
-}
-
-#ifdef ENABLE_MAIN
-
-int
-main (int argc, char *argv[])
+ int
+getHeaderSize (huffman_node_t * ht) 
 {
-  /*
-     char* file_path = "bmp.bmp";
-     int file_fd = open(file_path, O_RDONLY);
-     struct stat file_stat;
-     stat(file_path, &file_stat);
-     void* mapped_file = mmap(0, file_stat.st_size, PROT_READ, MAP_SHARED, file_fd, 0);
-     printf("%d\n", file_stat.st_size);
+  int i;
+  int j = 0;
+   for (;;)
+     {
+    
+        /* follow this branch all the way left */ 
+        while (ht->left != NULL)
+       {
+      ht = ht->left;
+      }
+     if (ht->value != COMPOSITE_NODE)
+       {
+      j += 1;
+      for (i = 0; i < sizeof (count_t); i++)
+         {
+        j += 1;
+        }
+      }
+     while (ht->parent != NULL)
+       {
+      if (ht != ht->parent->right)
+         {
+        ht = ht->parent->right;
+        break;
+        }
+      
+      else
+         {
+        
+            /* parent's right tried, go up one level yet */ 
+            ht = ht->parent;
+        }
+      }
+     if (ht->parent == NULL)
+       {
+      
+          /* we're at the top with nowhere to go */ 
+          break;
+      }
+    }
+   
+      /* now write end of table char 0 count 0 */ 
+      j += 1;
+  for (i = 0; i < sizeof (count_t); i++)
+     {
+    j += 1;
+    }
+   return j;
+}
 
-     int size;
-     void* out = huffman_encode(mapped_file, file_stat.st_size);
-     huffman_decode(out, &size);
-   */
-  char *j = "j'aime aller sur le bord de l'eau les jeudis ou les jours impairs";
-  void *out;
-  unsigned char *in = 0;
-  int size = 0;
-  out = huffman_encode (j, strlen (j));
-  in = huffman_decode (out, &size);
-  for (int i = 0; i < size; ++i) {
-    printf ("%c", *(char *) in);
-    ++in;
-  }
-  free (out);
-  return 0;
-}
+ void
+WriteHeader (huffman_node_t * ht, unsigned char *buf) 
+{
+  count_byte_t byteUnion;
+  int i;
+  int j = 0;
+   for (;;)
+     {
+    
+        /* follow this branch all the way left */ 
+        while (ht->left != NULL)
+       {
+      ht = ht->left;
+      }
+     if (ht->value != COMPOSITE_NODE)
+       {
+      
+          /* write symbol and count to header */ 
+          buf[j] = (unsigned char) ht->value;
+      j += 1;
+       byteUnion.count = ht->count;
+      for (i = 0; i < sizeof (count_t); i++)
+         {
+        buf[j] = (unsigned char) byteUnion.byte[i];
+        j += 1;
+      } }
+     while (ht->parent != NULL)
+       {
+      if (ht != ht->parent->right)
+         {
+        ht = ht->parent->right;
+        break;
+        }
+      
+      else
+         {
+        
+            /* parent's right tried, go up one level yet */ 
+            ht = ht->parent;
+        }
+      }
+     if (ht->parent == NULL)
+       {
+      
+          /* we're at the top with nowhere to go */ 
+          break;
+      }
+    }
+   
+      /* now write end of table char 0 count 0 */ 
+      buf[j] = (unsigned char) 0;
+  j += 1;
+  for (i = 0; i < sizeof (count_t); i++)
+     {
+    buf[j] = (unsigned char) 0;
+    j += 1;
+} }  unsigned char *
 
-#endif
+DecodeFile (huffman_node_t ** ht, unsigned char *encoded_buffer,
+    count_t encoded_size, count_t * decoded_size) 
+{
+  huffman_node_t * huffmanTree, *currentNode;
+  int i, c, j, k;
+  count_t total = 0;
+  count_t total_count = 0;
+  unsigned char *buffer = NULL;
+   
+      /* allocate array of leaves for all possible characters */ 
+      for (i = 0; i < NUM_CHARS; i++)
+     {
+    ht[i] = AllocHuffmanNode (i);
+    }
+   
+      /* populate leaves with frequency information from file header */ 
+      k = ReadHeader (ht, encoded_buffer, encoded_size, &total);
+   total_count = total;
+  buffer = g_malloc (sizeof (unsigned char) * total_count);
+   
+      /* put array of leaves into a huffman tree */ 
+      huffmanTree = BuildHuffmanTree (ht, NUM_CHARS);
+   
+      /* now we should have a tree that matches the tree used on the encode */ 
+      currentNode = huffmanTree;
+   j = 0;
+  
+      /* handle one symbol codes */ 
+      if (currentNode->value != COMPOSITE_NODE)
+     {
+    k = encoded_size;
+     
+        /* now just write out number of required symbols */ 
+        while (total)
+       {
+      buffer[j] = (unsigned char) (currentNode->value);
+      
+          /*fputc((currentNode->value, fpOut); */ 
+          total--;
+      j++;
+    } }
+   while (k < encoded_size)
+     {
+    c = encoded_buffer[k];
+    k += 1;
+    
+        /* traverse the tree finding matches for our characters */ 
+        for (i = 0; i < 8; i++)
+       {
+      if (c & 0x80)
+         {
+        currentNode = currentNode->right;
+        }
+      
+      else
+         {
+        currentNode = currentNode->left;
+        }
+       if (currentNode->value != COMPOSITE_NODE)
+         {
+        
+            /* we've found a character */ 
+            /*fputc(currentNode->value, fpOut); */ 
+            buffer[j] = (unsigned char) (currentNode->value);
+        currentNode = huffmanTree;
+        total--;
+        j++;
+         if (total == 0)
+           {
+          
+              /* we've just written the last character */ 
+              break;
+          }
+        }
+      c <<= 1;
+      }
+    }
+   *decoded_size = total_count;
+   FreeHuffmanTree (huffmanTree);     /* free allocated memory */
+  return buffer;
+}
+
+ count_t ReadHeader (huffman_node_t ** ht, unsigned char *encoded_buffer,
+    count_t encoded_size, count_t * total) 
+{
+  count_byte_t byteUnion;
+  int c;
+  int i;
+  int j = 0;
+   while (j < encoded_size)
+     {
+    c = encoded_buffer[j];
+    j += 1;
+    for (i = 0; i < sizeof (count_t); i++)
+       {
+      byteUnion.byte[i] = (byte_t) encoded_buffer[j];
+      j += 1;
+      }
+     if ((byteUnion.count == 0) && (c == 0))
+       {
+      
+          /* we just read end of table marker */ 
+          break;
+      }
+     ht[c]->count = byteUnion.count;
+    ht[c]->ignore = FALSE;
+    (*total) += byteUnion.count;
+    }
+  return j;
+}
+
+ void
+dumpToFile (unsigned char *buffer, const char *fName, count_t count) 
+{
+  int i = 0;
+  FILE * fpOut;
+   if ((fpOut = fopen (fName, "wb")) == NULL)
+     {
+    perror (fName);
+    exit (EXIT_FAILURE);
+    }
+   while (i < count)
+     {
+    fputc (buffer[i], fpOut);
+     i += 1;
+    }
+   fclose (fpOut);
+}
+
+ unsigned char *
+readFile (const char *name, count_t * count) 
+{
+  FILE * file;
+  unsigned char *buffer;
+  unsigned long fileLen;
+   file = fopen (name, "rb");
+  if (!file)
+     {
+    fprintf (stderr, "Unable to open file %s", name);
+    return NULL;
+    }
+   fseek (file, 0, SEEK_END);
+  fileLen = ftell (file);
+  fseek (file, 0, SEEK_SET);
+   buffer = (unsigned char *) malloc (fileLen + 1);
+  if (!buffer)
+     {
+    fprintf (stderr, "Memory error!");
+    fclose (file);
+    return NULL;
+    }
+   fread (buffer, fileLen, 1, file);
+  fclose (file);
+   *count = fileLen;
+   return buffer;
+}
+
+
