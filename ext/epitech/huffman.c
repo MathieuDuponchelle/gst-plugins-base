@@ -8,13 +8,10 @@
 #include "huffman.h"
 
 
-/* allocation/deallocation routines */
 static huffman_node_t *AllocHuffmanNode (int value);
 static huffman_node_t *AllocHuffmanCompositeNode (huffman_node_t * left,
     huffman_node_t * right);
 static void FreeHuffmanTree (huffman_node_t * ht);
-
-/* build and display tree */
 static huffman_node_t *GenerateTreeFromFile (huffman_node_t ** huffmanArray,
     unsigned char *buffer, count_t total);
 static huffman_node_t *BuildHuffmanTree (huffman_node_t ** ht, int elements);
@@ -25,8 +22,6 @@ static unsigned char *DecodeFile (huffman_node_t ** ht,
     unsigned char *encoded_buffer, count_t encoded_size,
     count_t * decoded_size);
 static void MakeCodeList (huffman_node_t * ht, code_list_t * cl);
-
-/* reading/writing tree to file */
 static void WriteHeader (huffman_node_t * ht, unsigned char *buf);
 static count_t ReadHeader (huffman_node_t ** ht, unsigned char *encoded_buffer,
     count_t encoded_size, count_t * total);
@@ -43,7 +38,7 @@ void *
 huffman_encode (unsigned char *const input_data, unsigned int const input_size,
     unsigned int *output_size)
 {
-  huffman_node_t *huffmanTree;  /* root of huffman tree */
+  huffman_node_t *huffmanTree;
   void *encoded_buffer;
   huffman_node_t *huffmanArray[NUM_CHARS];
   huffmanTree = GenerateTreeFromFile (huffmanArray, input_data, input_size);
@@ -84,24 +79,21 @@ static huffman_node_t *
 GenerateTreeFromFile (huffman_node_t ** huffmanArray,
     unsigned char *buffer, count_t total)
 {
-  huffman_node_t *huffmanTree;  /* root of huffman tree */
+  huffman_node_t *huffmanTree;
   int c;
   count_t i = 0;
   count_t count = 0;
 
-  /* allocate array of leaves for all possible characters */
   for (c = 0; c < NUM_CHARS; c++) {
     huffmanArray[c] = AllocHuffmanNode (c);
   }
 
-  /* count occurrence of each character */
   while (i < total) {
     c = buffer[i];
     if (count < COUNT_T_MAX) {
       count++;
 
-      /* increment count for character and include in tree */
-      huffmanArray[c]->count++; /* check for overflow */
+      huffmanArray[c]->count++;
       huffmanArray[c]->ignore = FALSE;
     }
 
@@ -112,7 +104,6 @@ GenerateTreeFromFile (huffman_node_t ** huffmanArray,
     i++;
   }
 
-  /* put array of leaves into a huffman tree */
   huffmanTree = BuildHuffmanTree (huffmanArray, NUM_CHARS);
   return (huffmanTree);
 }
@@ -124,9 +115,8 @@ AllocHuffmanNode (int value)
   ht = (huffman_node_t *) (malloc (sizeof (huffman_node_t)));
   if (ht != NULL) {
     ht->value = value;
-    ht->ignore = TRUE;          /* will be FALSE if one is found */
+    ht->ignore = TRUE;
 
-    /* at this point, the node is not part of a tree */
     ht->count = 0;
     ht->level = 0;
     ht->left = NULL;
@@ -147,12 +137,11 @@ AllocHuffmanCompositeNode (huffman_node_t * left, huffman_node_t * right)
   huffman_node_t *ht;
   ht = (huffman_node_t *) (malloc (sizeof (huffman_node_t)));
   if (ht != NULL) {
-    ht->value = COMPOSITE_NODE; /* represents multiple chars */
+    ht->value = COMPOSITE_NODE;
     ht->ignore = FALSE;
-    ht->count = left->count + right->count;     /* sum of children */
+    ht->count = left->count + right->count;
     ht->level = max (left->level, right->level) + 1;
 
-    /* attach children */
     ht->left = left;
     ht->left->parent = ht;
     ht->right = right;
@@ -182,15 +171,13 @@ FreeHuffmanTree (huffman_node_t * ht)
 static int
 FindMinimumCount (huffman_node_t ** ht, int elements)
 {
-  int i;                        /* array index */
-  int currentIndex = NONE;      /* index with lowest count seen so far */
-  int currentCount = INT_MAX;   /* lowest count seen so far */
-  int currentLevel = INT_MAX;   /* level of lowest count seen so far */
+  int i;
+  int currentIndex = NONE;
+  int currentCount = INT_MAX;
+  int currentLevel = INT_MAX;
 
-  /* sequentially search array */
   for (i = 0; i < elements; i++) {
 
-    /* check for lowest count (or equally as low, but not as deep) */
     if ((ht[i] != NULL) && (!ht[i]->ignore) &&
         (ht[i]->count < currentCount ||
             (ht[i]->count == currentCount && ht[i]->level < currentLevel))) {
@@ -205,30 +192,23 @@ FindMinimumCount (huffman_node_t ** ht, int elements)
 static huffman_node_t *
 BuildHuffmanTree (huffman_node_t ** ht, int elements)
 {
-  int min1, min2;               /* two nodes with the lowest count */
+  int min1, min2;
 
-  /* keep looking until no more nodes can be found */
   for (;;) {
 
-    /* find node with lowest count */
     min1 = FindMinimumCount (ht, elements);
     if (min1 == NONE) {
 
-      /* no more nodes to combine */
       break;
     }
-    ht[min1]->ignore = TRUE;    /* remove from consideration */
+    ht[min1]->ignore = TRUE;
 
-    /* find node with second lowest count */
     min2 = FindMinimumCount (ht, elements);
     if (min2 == NONE) {
-
-      /* no more nodes to combine */
       break;
     }
-    ht[min2]->ignore = TRUE;    /* remove from consideration */
+    ht[min2]->ignore = TRUE;
 
-    /* combine nodes into a tree */
     ht[min1] = AllocHuffmanCompositeNode (ht[min1], ht[min2]);
     ht[min2] = NULL;
   }
@@ -242,7 +222,6 @@ getPayloadSize (unsigned char *buffer, code_list_t codeList[], count_t count)
   char bitBuffer;
   int size;
 
-  /* write encoded file 1 byte at a time */
   bitBuffer = 0;
   bitCount = 0;
   j = 0;
@@ -250,7 +229,6 @@ getPayloadSize (unsigned char *buffer, code_list_t codeList[], count_t count)
   while (j < count) {
     c = (int) buffer[j];
 
-    /* shift in bits */
     for (i = 0; i < codeList[c].codeLen; i++) {
       bitCount++;
       bitBuffer = (bitBuffer << 1) | (TestBit256 (codeList[c].code, i) == 1);
@@ -262,7 +240,6 @@ getPayloadSize (unsigned char *buffer, code_list_t codeList[], count_t count)
     j += 1;
   }
 
-  /* now handle spare bits */
   if (bitCount != 0) {
     bitBuffer <<= 8 - bitCount;
     size += 1;
@@ -274,18 +251,17 @@ static unsigned char *
 EncodeFile (huffman_node_t * ht, unsigned char *buffer, count_t count,
     count_t * encoded_size)
 {
-  code_list_t codeList[NUM_CHARS];      /* table for quick encode */
+  code_list_t codeList[NUM_CHARS];
   int c, i, bitCount, j, k, header_size, payload_size;
   char bitBuffer;
   unsigned char *buf;
-  MakeCodeList (ht, codeList);  /* convert code to easy to use list */
+  MakeCodeList (ht, codeList);
   header_size = getHeaderSize (ht);
   payload_size = getPayloadSize (buffer, codeList, count);
   buf = g_malloc (sizeof (unsigned char) * (header_size + payload_size));
   *encoded_size = header_size + payload_size;
   WriteHeader (ht, buf);
 
-  /* write encoded file 1 byte at a time */
   bitBuffer = 0;
   bitCount = 0;
   j = 0;
@@ -293,13 +269,10 @@ EncodeFile (huffman_node_t * ht, unsigned char *buffer, count_t count,
   while (j < count) {
     c = (int) buffer[j];
 
-    /* shift in bits */
     for (i = 0; i < codeList[c].codeLen; i++) {
       bitCount++;
       bitBuffer = (bitBuffer << 1) | (TestBit256 (codeList[c].code, i) == 1);
       if (bitCount == 8) {
-
-        /* we have a byte in the buffer */
         buf[k] = bitBuffer;
         bitCount = 0;
         k += 1;
@@ -308,7 +281,6 @@ EncodeFile (huffman_node_t * ht, unsigned char *buffer, count_t count,
     j += 1;
   }
 
-  /* now handle spare bits */
   if (bitCount != 0) {
     bitBuffer <<= 8 - bitCount;
     buf[k] = bitBuffer;
@@ -324,42 +296,28 @@ MakeCodeList (huffman_node_t * ht, code_list_t * cl)
   byte_t depth = 0;
   ClearAll256 (code);
   for (;;) {
-
-    /* follow this branch all the way left */
     while (ht->left != NULL) {
       LeftShift256 (code, 1);
       ht = ht->left;
       depth++;
     }
     if (ht->value != COMPOSITE_NODE) {
-
-      /* enter results in list */
       cl[ht->value].codeLen = depth;
       Copy256 (cl[ht->value].code, code);
-
-      /* now left justify code */
       LeftShift256 (cl[ht->value].code, 256 - depth);
     }
     while (ht->parent != NULL) {
       if (ht != ht->parent->right) {
-
-        /* try the parent's right */
         code[31] |= 0x01;
         ht = ht->parent->right;
         break;
-      }
-
-      else {
-
-        /* parent's right tried, go up one level yet */
+      } else {
         depth--;
         RightShift256 (code, 1);
         ht = ht->parent;
       }
     }
     if (ht->parent == NULL) {
-
-      /* we're at the top with nowhere to go */
       break;
     }
   }
@@ -371,8 +329,6 @@ getHeaderSize (huffman_node_t * ht)
   int i;
   int j = 0;
   for (;;) {
-
-    /* follow this branch all the way left */
     while (ht->left != NULL) {
       ht = ht->left;
     }
@@ -386,22 +342,15 @@ getHeaderSize (huffman_node_t * ht)
       if (ht != ht->parent->right) {
         ht = ht->parent->right;
         break;
-      }
-
-      else {
-
-        /* parent's right tried, go up one level yet */
+      } else {
         ht = ht->parent;
       }
     }
     if (ht->parent == NULL) {
-
-      /* we're at the top with nowhere to go */
       break;
     }
   }
 
-  /* now write end of table char 0 count 0 */
   j += 1;
   for (i = 0; i < sizeof (count_t); i++) {
     j += 1;
@@ -416,14 +365,10 @@ WriteHeader (huffman_node_t * ht, unsigned char *buf)
   int i;
   int j = 0;
   for (;;) {
-
-    /* follow this branch all the way left */
     while (ht->left != NULL) {
       ht = ht->left;
     }
     if (ht->value != COMPOSITE_NODE) {
-
-      /* write symbol and count to header */
       buf[j] = (unsigned char) ht->value;
       j += 1;
       byteUnion.count = ht->count;
@@ -435,22 +380,15 @@ WriteHeader (huffman_node_t * ht, unsigned char *buf)
       if (ht != ht->parent->right) {
         ht = ht->parent->right;
         break;
-      }
-
-      else {
-
-        /* parent's right tried, go up one level yet */
+      } else {
         ht = ht->parent;
       }
     }
     if (ht->parent == NULL) {
-
-      /* we're at the top with nowhere to go */
       break;
     }
   }
 
-  /* now write end of table char 0 count 0 */
   buf[j] = (unsigned char) 0;
   j += 1;
   for (i = 0; i < sizeof (count_t); i++) {
@@ -467,32 +405,25 @@ DecodeFile (huffman_node_t ** ht, unsigned char *encoded_buffer,
   count_t total_count = 0;
   unsigned char *buffer = NULL;
 
-  /* allocate array of leaves for all possible characters */
   for (i = 0; i < NUM_CHARS; i++) {
     ht[i] = AllocHuffmanNode (i);
   }
 
-  /* populate leaves with frequency information from file header */
   k = ReadHeader (ht, encoded_buffer, encoded_size, &total);
   total_count = total;
   buffer = g_malloc (sizeof (unsigned char) * total_count);
 
-  /* put array of leaves into a huffman tree */
   huffmanTree = BuildHuffmanTree (ht, NUM_CHARS);
 
-  /* now we should have a tree that matches the tree used on the encode */
   currentNode = huffmanTree;
   j = 0;
 
-  /* handle one symbol codes */
   if (currentNode->value != COMPOSITE_NODE) {
     k = encoded_size;
 
-    /* now just write out number of required symbols */
     while (total) {
       buffer[j] = (unsigned char) (currentNode->value);
 
-      /*fputc((currentNode->value, fpOut); */
       total--;
       j++;
   }}
@@ -500,7 +431,6 @@ DecodeFile (huffman_node_t ** ht, unsigned char *encoded_buffer,
     c = encoded_buffer[k];
     k += 1;
 
-    /* traverse the tree finding matches for our characters */
     for (i = 0; i < 8; i++) {
       if (c & 0x80) {
         currentNode = currentNode->right;
@@ -510,16 +440,11 @@ DecodeFile (huffman_node_t ** ht, unsigned char *encoded_buffer,
         currentNode = currentNode->left;
       }
       if (currentNode->value != COMPOSITE_NODE) {
-
-        /* we've found a character */
-        /*fputc(currentNode->value, fpOut); */
         buffer[j] = (unsigned char) (currentNode->value);
         currentNode = huffmanTree;
         total--;
         j++;
         if (total == 0) {
-
-          /* we've just written the last character */
           break;
         }
       }
@@ -527,7 +452,7 @@ DecodeFile (huffman_node_t ** ht, unsigned char *encoded_buffer,
     }
   }
   *decoded_size = total_count;
-  FreeHuffmanTree (huffmanTree);        /* free allocated memory */
+  FreeHuffmanTree (huffmanTree);
   return buffer;
 }
 
@@ -547,8 +472,6 @@ ReadHeader (huffman_node_t ** ht, unsigned char *encoded_buffer,
       j += 1;
     }
     if ((byteUnion.count == 0) && (c == 0)) {
-
-      /* we just read end of table marker */
       break;
     }
     ht[c]->count = byteUnion.count;
