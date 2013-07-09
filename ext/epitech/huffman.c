@@ -9,28 +9,36 @@
 
 
 /* allocation/deallocation routines */
-huffman_node_t *AllocHuffmanNode (int value);
-huffman_node_t *AllocHuffmanCompositeNode (huffman_node_t * left,
+static huffman_node_t *AllocHuffmanNode (int value);
+static huffman_node_t *AllocHuffmanCompositeNode (huffman_node_t * left,
     huffman_node_t * right);
-void FreeHuffmanTree (huffman_node_t * ht);
+static void FreeHuffmanTree (huffman_node_t * ht);
 
 /* build and display tree */
-huffman_node_t *GenerateTreeFromFile (huffman_node_t ** huffmanArray,
+static huffman_node_t *GenerateTreeFromFile (huffman_node_t ** huffmanArray,
     unsigned char *buffer, count_t total);
-huffman_node_t *BuildHuffmanTree (huffman_node_t ** ht, int elements);
-unsigned char *readFile (const char *name, count_t * count);
-int getHeaderSize (huffman_node_t * ht);
-void dumpToFile (unsigned char *buffer, const char *fName, count_t count);
-unsigned char *EncodeFile (huffman_node_t * ht, unsigned char *buffer,
+static huffman_node_t *BuildHuffmanTree (huffman_node_t ** ht, int elements);
+static int getHeaderSize (huffman_node_t * ht);
+static unsigned char *EncodeFile (huffman_node_t * ht, unsigned char *buffer,
     count_t size, count_t * encoded_size);
-unsigned char *DecodeFile (huffman_node_t ** ht, unsigned char *encoded_buffer,
-    count_t encoded_size, count_t * decoded_size);
-void MakeCodeList (huffman_node_t * ht, code_list_t * cl);
+static unsigned char *DecodeFile (huffman_node_t ** ht,
+    unsigned char *encoded_buffer, count_t encoded_size,
+    count_t * decoded_size);
+static void MakeCodeList (huffman_node_t * ht, code_list_t * cl);
 
 /* reading/writing tree to file */
-void WriteHeader (huffman_node_t * ht, unsigned char *buf);
-count_t ReadHeader (huffman_node_t ** ht, unsigned char *encoded_buffer,
+static void WriteHeader (huffman_node_t * ht, unsigned char *buf);
+static count_t ReadHeader (huffman_node_t ** ht, unsigned char *encoded_buffer,
     count_t encoded_size, count_t * total);
+
+#ifdef ENABLE_MAIN
+
+static void dumpToFile (unsigned char *buffer, const char *fName,
+    count_t count);
+static unsigned char *readFile (const char *name, count_t * count);
+
+#endif
+
 void *
 huffman_encode (unsigned char *const input_data, unsigned int const input_size,
     unsigned int *output_size)
@@ -55,6 +63,7 @@ huffman_decode (unsigned char *input_data, unsigned int input_size,
   return decoded_buffer;
 }
 
+#ifdef ENABLE_MAIN
 int
 main (int argc, char *argv[])
 {
@@ -69,8 +78,9 @@ main (int argc, char *argv[])
   dumpToFile (decoded_buffer, "srcd.rgb", decoded_size);
   return (0);
 }
+#endif
 
-huffman_node_t *
+static huffman_node_t *
 GenerateTreeFromFile (huffman_node_t ** huffmanArray,
     unsigned char *buffer, count_t total)
 {
@@ -107,7 +117,7 @@ GenerateTreeFromFile (huffman_node_t ** huffmanArray,
   return (huffmanTree);
 }
 
-huffman_node_t *
+static huffman_node_t *
 AllocHuffmanNode (int value)
 {
   huffman_node_t *ht;
@@ -131,7 +141,7 @@ AllocHuffmanNode (int value)
   return ht;
 }
 
-huffman_node_t *
+static huffman_node_t *
 AllocHuffmanCompositeNode (huffman_node_t * left, huffman_node_t * right)
 {
   huffman_node_t *ht;
@@ -157,7 +167,7 @@ AllocHuffmanCompositeNode (huffman_node_t * left, huffman_node_t * right)
   return ht;
 }
 
-void
+static void
 FreeHuffmanTree (huffman_node_t * ht)
 {
   if (ht->left != NULL) {
@@ -192,7 +202,7 @@ FindMinimumCount (huffman_node_t ** ht, int elements)
   return currentIndex;
 }
 
-huffman_node_t *
+static huffman_node_t *
 BuildHuffmanTree (huffman_node_t ** ht, int elements)
 {
   int min1, min2;               /* two nodes with the lowest count */
@@ -260,7 +270,7 @@ getPayloadSize (unsigned char *buffer, code_list_t codeList[], count_t count)
   return size;
 }
 
-unsigned char *
+static unsigned char *
 EncodeFile (huffman_node_t * ht, unsigned char *buffer, count_t count,
     count_t * encoded_size)
 {
@@ -307,7 +317,7 @@ EncodeFile (huffman_node_t * ht, unsigned char *buffer, count_t count,
   return buf;
 }
 
-void
+static void
 MakeCodeList (huffman_node_t * ht, code_list_t * cl)
 {
   code_t code[32];
@@ -355,7 +365,7 @@ MakeCodeList (huffman_node_t * ht, code_list_t * cl)
   }
 }
 
-int
+static int
 getHeaderSize (huffman_node_t * ht)
 {
   int i;
@@ -399,7 +409,7 @@ getHeaderSize (huffman_node_t * ht)
   return j;
 }
 
-void
+static void
 WriteHeader (huffman_node_t * ht, unsigned char *buf)
 {
   count_byte_t byteUnion;
@@ -521,7 +531,7 @@ DecodeFile (huffman_node_t ** ht, unsigned char *encoded_buffer,
   return buffer;
 }
 
-count_t
+static count_t
 ReadHeader (huffman_node_t ** ht, unsigned char *encoded_buffer,
     count_t encoded_size, count_t * total)
 {
@@ -548,7 +558,8 @@ ReadHeader (huffman_node_t ** ht, unsigned char *encoded_buffer,
   return j;
 }
 
-void
+#ifdef ENABLE_MAIN
+static void
 dumpToFile (unsigned char *buffer, const char *fName, count_t count)
 {
   int i = 0;
@@ -564,7 +575,7 @@ dumpToFile (unsigned char *buffer, const char *fName, count_t count)
   fclose (fpOut);
 }
 
-unsigned char *
+static unsigned char *
 readFile (const char *name, count_t * count)
 {
   FILE *file;
@@ -591,3 +602,4 @@ readFile (const char *name, count_t * count)
   *count = fileLen;
   return buffer;
 }
+#endif
