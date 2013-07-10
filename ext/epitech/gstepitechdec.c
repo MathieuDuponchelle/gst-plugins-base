@@ -200,7 +200,7 @@ epitech_dec_handle_frame (GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
 
     data_in = info_in.data;
 
-    //res = huffman_decode ((unsigned char *) data_in, info_in.size, &res_size);
+    res = huffman_decode ((unsigned char *) data_in, info_in.size, &res_size);
 
     /* Here we unmap the buffers. No more access is possible */
     gst_buffer_unmap (frame->input_buffer, &info_in);

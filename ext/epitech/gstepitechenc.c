@@ -211,7 +211,7 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
 
     data_in = info_in.data;
 
-    //res = huffman_encode ((unsigned char *) data_in, info_in.size, &res_size);
+    res = huffman_encode ((unsigned char *) data_in, info_in.size, &res_size);
 
     GST_ERROR ("Encoded buffer, original / compressed %u %u",
         (unsigned int) info_in.size, res_size);
