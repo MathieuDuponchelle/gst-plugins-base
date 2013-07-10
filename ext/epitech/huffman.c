@@ -510,7 +510,6 @@ readFile (const char *name, count_t * count)
   FILE *file;
   unsigned char *buffer;
   unsigned long fileLen;
-  int junk;
   file = fopen (name, "rb");
 
   if (!file) {
@@ -526,8 +525,7 @@ readFile (const char *name, count_t * count)
     fclose (file);
     return NULL;
   }
-  junk = fread (buffer, fileLen, 1, file);
-  junk = junk;
+  (void) fread (buffer, fileLen, 1, file);
   fclose (file);
   *count = fileLen;
 
