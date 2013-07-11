@@ -1,5 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include "rle.h"
 
 /* Specification: encoded stream are unsigned bytes consisting of sequences.
@@ -68,7 +66,6 @@ rle_encode (unsigned char *in, unsigned char *out)
   }
   *out = 0;
   out++;
-  printf ("Size of compressing %d\n", out - c_out);
 }
 
 void
