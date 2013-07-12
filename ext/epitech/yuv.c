@@ -1,7 +1,5 @@
 #include <math.h>
-#include <stdio.h>
 
-#include "utils.h"
 #include "yuv.h"
 
 /*
@@ -45,6 +43,7 @@ clamp (int val)
 unsigned char *
 yuv422 (unsigned char *rgb, int rows, int cols)
 {
+  //Because cols * 3 (rgb) and 2/3
   int size = rows * cols * 2;
   int i = 0;
   int j = 0;
