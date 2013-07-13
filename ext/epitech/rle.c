@@ -10,16 +10,18 @@
  */
 
 void
-rle_encode (unsigned char *in, unsigned char *out)
+rle_encode (unsigned char *in, unsigned char *out, unsigned int length)
 {
   unsigned char buf[256];
   int len = 0, repeat = 0, end = 0, c, i;
   unsigned char *c_out = out;
 
-  while (!end) {
+  int y = 0;
+  while (y <= length) {
     c = *in;
-    end = (c == 0);
+    end = !(y <= length);
     in++;
+    y++;
     if (!end) {
       buf[len++] = c;
       if (len <= 1)
@@ -97,6 +99,7 @@ rle_decode (unsigned char *in, unsigned char *out)
   }
 }
 
+#define ENABLE_MAIN
 #ifdef ENABLE_MAIN
 #include <stdlib.h>
 #include <string.h>
@@ -108,7 +111,7 @@ main ()
   char *compressed = malloc (strlen (input));
   char *restored = malloc (strlen (input));
 
-  rle_encode (input, compressed);
+  rle_encode (input, compressed, strlen (input));
   rle_decode (compressed, restored);
   printf ("Original : %s == size : %d\n", input, strlen (input));
   printf ("Compressed : %s\n", compressed);
