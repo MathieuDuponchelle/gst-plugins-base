@@ -267,6 +267,7 @@ readFile (const char *name, count_t * count)
 }
 
 #include "yuv.h"
+#include "rle.h"
 
 void
 main ()
@@ -275,11 +276,17 @@ main ()
   unsigned char *buffer = readFile ("src.rgb", &count);
   unsigned char *buffer_yuv = yuv422 (buffer, 240, 320);
   char *dct;
+  char *dct_two = malloc (240 * 320 * 3);
   unsigned char *restored;
+  unsigned char *rle = malloc (240 * 320 * 2);
+  int size = 240 * 320 * 2;
 
   dct = dct_encode (buffer_yuv, 240, 320 * 2);
-  restored = dct_decode (dct, 240, 320 * 2);
+  rle_encode (dct, rle, &size);
+  rle_decode (rle, dct_two);
+  restored = dct_decode (dct_two, 240, 320 * 2);
   unsigned char *pute = rgb422 (restored, 240, 320);
+  printf ("%d\n", size);
   dumpToFile (pute, "srcd.rgb", 240 * 320 * 3);
 }
 
