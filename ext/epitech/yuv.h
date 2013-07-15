@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 
-unsigned char *yuv422 (unsigned char *rgb, int rows, int cols);
-unsigned char *rgb422 (unsigned char *yuv, int rows, int cols);
+unsigned char *yuv422 (const unsigned char *rgb, const int rows, const int cols);
+unsigned char *rgb422 (const unsigned char *yuv, const int rows, const int cols);
 
 #endif
