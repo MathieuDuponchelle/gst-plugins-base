@@ -51,8 +51,7 @@ GST_STATIC_PAD_TEMPLATE ("sink",
     GST_STATIC_CAPS ("video/x-raw, "
         "format = (string) { RGB }, "
         "framerate = (fraction) [1/MAX, MAX], "
-        "width = (int) [ 1, MAX ], " "height = (int) [ 1, MAX ]")
-    );
+        "width = (int) [ 1, MAX ], " "height = (int) [ 1, MAX ]"));
 
 static GstStaticPadTemplate epitech_enc_src_factory =
 GST_STATIC_PAD_TEMPLATE ("src",
@@ -60,8 +59,7 @@ GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS ("video/x-epitech, "
         "framerate = (fraction) [1/MAX, MAX], "
-        "width = (int) [ 1, MAX ], " "height = (int) [ 1, MAX ]")
-    );
+        "width = (int) [ 1, MAX ], " "height = (int) [ 1, MAX ]"));
 
 #define gst_epitech_enc_parent_class parent_class
 G_DEFINE_TYPE (GstEpitechEnc, gst_epitech_enc, GST_TYPE_VIDEO_ENCODER);
@@ -103,7 +101,8 @@ gst_epitech_enc_class_init (GstEpitechEncClass * klass)
   gst_element_class_add_pad_template (element_class,
       gst_static_pad_template_get (&epitech_enc_sink_factory));
   gst_element_class_set_static_metadata (element_class,
-      "Epitech video encoder", "Codec/Encoder/Video",
+      "Epitech video encoder",
+      "Codec/Encoder/Video",
       "encode raw YUV video to a epitech stream",
       "Julien delaigue <delaigue@whatever.com>");
 

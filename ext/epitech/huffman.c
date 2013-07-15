@@ -12,31 +12,23 @@ static huffman_node_t *alloc_huffman_node (int value);
 static huffman_node_t *alloc_huffman_composite_node (huffman_node_t * left,
     huffman_node_t * right);
 static void free_huffman_tree (huffman_node_t * ht);
-static huffman_node_t *generate_tree_from_file (huffman_node_t ** huffmanArray,
-    unsigned char *buffer, count_t total);
+static huffman_node_t *generate_tree_from_file (huffman_node_t **
+    huffmanArray, unsigned char *buffer, count_t total);
 static huffman_node_t *build_huffman_tree (huffman_node_t ** ht, int elements);
 static int get_header_size (huffman_node_t * ht);
 static unsigned char *encode_file (huffman_node_t * ht, unsigned char *buffer,
     count_t size, count_t * encoded_size);
 static unsigned char *decode_file (huffman_node_t ** ht,
-    unsigned char *encoded_buffer, count_t encoded_size,
-    count_t * decoded_size);
+    unsigned char *encoded_buffer,
+    count_t encoded_size, count_t * decoded_size);
 static void make_code_list (huffman_node_t * ht, code_list_t * cl);
 static void write_header (huffman_node_t * ht, unsigned char *buf);
-static count_t read_header (huffman_node_t ** ht, unsigned char *encoded_buffer,
-    count_t encoded_size, count_t * total);
-
-#ifdef ENABLE_MAIN
-
-static void dumpToFile (unsigned char *buffer, const char *fName,
-    count_t count);
-static unsigned char *readFile (const char *name, count_t * count);
-
-#endif
+static count_t read_header (huffman_node_t ** ht,
+    unsigned char *encoded_buffer, count_t encoded_size, count_t * total);
 
 void *
-huffman_encode (unsigned char *const input_data, unsigned int const input_size,
-    unsigned int *output_size)
+huffman_encode (unsigned char *const input_data,
+    unsigned int const input_size, unsigned int *output_size)
 {
   huffman_node_t *huffmanTree;
   void *encoded_buffer;
@@ -61,25 +53,6 @@ huffman_decode (unsigned char *input_data, unsigned int input_size,
 
   return decoded_buffer;
 }
-
-#ifdef ENABLE_MAIN
-int
-main (int argc, char *argv[])
-{
-  count_t count = 0;
-  unsigned char *buffer = readFile ("src.rgb", &count);
-  unsigned char *encoded_buffer;
-  count_t encoded_size;
-  unsigned char *decoded_buffer;
-  count_t decoded_size;
-
-  encoded_buffer = huffman_encode (buffer, count, &encoded_size);
-  decoded_buffer = huffman_decode (encoded_buffer, encoded_size, &decoded_size);
-  dumpToFile (decoded_buffer, "srcd.rgb", decoded_size);
-
-  return (0);
-}
-#endif
 
 static huffman_node_t *
 generate_tree_from_file (huffman_node_t ** huffmanArray,
@@ -485,50 +458,3 @@ read_header (huffman_node_t ** ht, unsigned char *encoded_buffer,
 
   return j;
 }
-
-#ifdef ENABLE_MAIN
-static void
-dumpToFile (unsigned char *buffer, const char *fName, count_t count)
-{
-  int i = 0;
-  FILE *fpOut;
-
-  if ((fpOut = fopen (fName, "wb")) == NULL) {
-    perror (fName);
-    exit (EXIT_FAILURE);
-  }
-  while (i < count) {
-    fputc (buffer[i], fpOut);
-    i += 1;
-  }
-  fclose (fpOut);
-}
-
-static unsigned char *
-readFile (const char *name, count_t * count)
-{
-  FILE *file;
-  unsigned char *buffer;
-  unsigned long fileLen;
-  file = fopen (name, "rb");
-
-  if (!file) {
-    fprintf (stderr, "Unable to open file %s", name);
-    return NULL;
-  }
-  fseek (file, 0, SEEK_END);
-  fileLen = ftell (file);
-  fseek (file, 0, SEEK_SET);
-  buffer = (unsigned char *) malloc (fileLen + 1);
-  if (!buffer) {
-    fprintf (stderr, "Memory error!");
-    fclose (file);
-    return NULL;
-  }
-  (void) fread (buffer, fileLen, 1, file);
-  fclose (file);
-  *count = fileLen;
-
-  return buffer;
-}
-#endif

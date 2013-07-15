@@ -28,7 +28,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#  include "config.h"
+#include "config.h"
 #endif
 
 #include "gstepitechdec.h"
@@ -55,15 +55,13 @@ GST_STATIC_PAD_TEMPLATE ("src",
     GST_STATIC_CAPS ("video/x-raw, "
         "format = (string) { RGB }, "
         "framerate = (fraction) [0/1, MAX], "
-        "width = (int) [ 1, MAX ], " "height = (int) [ 1, MAX ]")
-    );
+        "width = (int) [ 1, MAX ], " "height = (int) [ 1, MAX ]"));
 
 static GstStaticPadTemplate epitech_dec_sink_factory =
 GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("video/x-epitech")
-    );
+    GST_STATIC_CAPS ("video/x-epitech"));
 
 #define gst_epitech_dec_parent_class parent_class
 G_DEFINE_TYPE (GstEpitechDec, gst_epitech_dec, GST_TYPE_VIDEO_DECODER);
@@ -100,7 +98,8 @@ gst_epitech_dec_class_init (GstEpitechDecClass * klass)
   gst_element_class_add_pad_template (element_class,
       gst_static_pad_template_get (&epitech_dec_sink_factory));
   gst_element_class_set_static_metadata (element_class,
-      "Epitech video decoder", "Codec/Decoder/Video",
+      "Epitech video decoder",
+      "Codec/Decoder/Video",
       "decode raw epitech streams to raw YUV video",
       "Benjamin Otte <otte@gnome.org>, Wim Taymans <wim@fluendo.com>");
 

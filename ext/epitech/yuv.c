@@ -2,38 +2,6 @@
 
 #include "yuv.h"
 
-/*
-http://www.fourcc.org/fccyvrgb.php
-
-Note for yuvtorgb :
-In both these cases, you have to clamp the output values to keep them in the [0-255] range.
-Rumour has it that the valid range is actually a subset of [0-255] (I've seen an RGB range of [16-235] mentioned)
-but clamping the values into [0-255] seems to produce acceptable results to me.
-*/
-
-static void
-rgbtoyuv (unsigned char r, unsigned char g, unsigned char b, unsigned char *y,
-    unsigned char *u, unsigned char *v)
-{
-  *y = (0.257 * r) + (0.504 * g) + (0.098 * b) + 16;
-  *u = (0.439 * r) - (0.368 * g) - (0.071 * b) + 128;
-  *v = -(0.148 * r) - (0.291 * g) + (0.439 * b) + 128;
-}
-
-static void
-yuvtorgb (unsigned char *r, unsigned char *g, unsigned char *b, unsigned char y,
-    unsigned char u, unsigned char v)
-{
-  int rt = 1.164 * (y - 16) + 2.018 * (u - 128);
-  int gt = 1.164 * (y - 16) - 0.813 * (v - 128) - 0.391 * (u - 128);
-  int bt = 1.164 * (y - 16) + 1.596 * (v - 128);
-
-  // Clamping (trimming) values as the note tell's us to do.
-  *r = (rt > 255) ? 255 : (rt < 0) ? 0 : rt;
-  *g = (gt > 255) ? 255 : (gt < 0) ? 0 : gt;
-  *b = (bt > 255) ? 255 : (bt < 0) ? 0 : bt;
-}
-
 static unsigned char
 clamp (int val)
 {
@@ -41,7 +9,7 @@ clamp (int val)
 }
 
 unsigned char *
-yuv422 (unsigned char *rgb, int rows, int cols)
+yuv422 (const unsigned char *rgb, const int rows, const int cols)
 {
   //Because cols * 3 (rgb) and 2/3
   int size = rows * cols * 2;
@@ -70,13 +38,14 @@ yuv422 (unsigned char *rgb, int rows, int cols)
 }
 
 unsigned char *
-rgb422 (unsigned char *yuv, int rows, int cols)
+rgb422 (const unsigned char *yuv, const int rows, const int cols)
 {
   int size = rows * cols * 3;
   int i = 0;
   int j = 0;
 
   unsigned char *rgb = malloc (sizeof (unsigned char) * size);
+
   while (i < size) {
     int y1 = yuv[j + 0];
     int u = yuv[j + 1];
@@ -97,44 +66,3 @@ rgb422 (unsigned char *yuv, int rows, int cols)
   }
   return rgb;
 }
-
-// Keep in mind that OpenCV use BGR not RGB
-/*
-unsigned char* toYuv(unsigned char* rgb, int rows, int cols)
-{
-    int size = rows * cols * 3;
-    unsigned char* yuv = xmalloc(sizeof(unsigned char) * size);
-
-    for (int i = 0; i < size; i += 3)
-    {
-        rgbtoyuv(
-            rgb[i + 2],
-            rgb[i + 1],
-            rgb[i + 0],
-            &(yuv[i + 0]),
-            &(yuv[i + 1]),
-            &(yuv[i + 2])
-        );
-    }
-    return yuv;
-}
-
-unsigned char* toRgb(unsigned char* yuv, int rows, int cols)
-{
-    int size = rows * cols * 3;
-    unsigned char* rgb = xmalloc(sizeof(unsigned char) * size);
-
-    for (int i = 0; i < size; i += 3)
-    {
-        yuvtorgb(
-            &(rgb[i + 2]),
-            &(rgb[i + 1]),
-            &(rgb[i + 0]),
-            yuv[i + 0],
-            yuv[i + 1],
-            yuv[i + 2]
-        );
-    }
-    return rgb;
-}
-*/
