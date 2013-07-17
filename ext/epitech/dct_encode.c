@@ -72,13 +72,13 @@ quantize (const double val)
 ** Read and quantize
 */
 static void
-write_to_buff (char *dst, const double src[8][8], int block_num)
+write_to_buff (char *dst, double src[8][8], int block_num)
 {
   int buff_index = 0;
 
   for (int x = 0; x < 8; x++)
     for (int y = 0; y < 8; y++) {
-      dst[buff_index + block_num] = quantize (src[x][y] / quantum_matrix[y][x]);
+      dst[buff_index + block_num] = quantize (src[x][y] / quantum_matrix[x][y]);
       buff_index++;
     }
 }

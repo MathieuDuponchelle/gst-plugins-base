@@ -65,19 +65,18 @@ int
 main (int ac, char **av)
 {
   count_t count = 0;
-  unsigned char *buffer = readFile ("src.rgb", &count);
-  unsigned char *buffer_yuv = yuv422 (buffer, 240, 320);
   char *dct;
   char *dct_two = malloc (240 * 320 * 3);
   unsigned char *restored;
   unsigned char *rle = malloc (240 * 320 * 2);
   unsigned int size = 240 * 320 * 2;
 
+  unsigned char *buffer = readFile ("src.rgb", &count);
+  unsigned char *buffer_yuv = yuv422 (buffer, 240, 320);
   dct = dct_encode (buffer_yuv, 240, 320 * 2);
   rle_encode (dct, rle, &size);
   rle_decode (rle, dct_two);
   restored = dct_decode (dct_two, 240, 320 * 2);
-  unsigned char *pute = rgb422 (restored, 240, 320);
   printf ("%d\n", size);
-  dumpToFile (pute, "srcd.rgb", 240 * 320 * 3);
+  dumpToFile (rgb422 (restored, 240, 320), "srcd.rgb", 240 * 320 * 3);
 }

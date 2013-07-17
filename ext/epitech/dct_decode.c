@@ -3,8 +3,9 @@
 #include <math.h>
 #include "dct.h"
 
+
 static void
-idct (unsigned char *dst, const double data[8][8], const int xpos,
+idct (unsigned char *dst, double data[8][8], const int xpos,
     const int ypos, const int width)
 {
   double Cu, Cv;
@@ -55,7 +56,7 @@ read_from_buff (const char *src, double dst[8][8], const int block_num)
 
   for (int x = 0; x < 8; x++)
     for (int y = 0; y < 8; y++) {
-      dst[x][y] = src[buff_index + block_num] * quantum_matrix[y][x];
+      dst[x][y] = src[buff_index + block_num] * quantum_matrix[x][y];
       buff_index++;
     }
 }
