@@ -76,10 +76,11 @@ rle_decode (unsigned char *in, unsigned char *out)
 {
   int c, i, cnt;
 
-  c = *in;
-  while (c != 0) {
+  while (1) {
     c = *in;
     in++;
+    if (c == 0)
+      return;
     if (c > 128) {
       cnt = c - 128;
       for (i = 0; i < cnt; i++) {
