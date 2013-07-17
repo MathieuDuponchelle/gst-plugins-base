@@ -1,9 +1,5 @@
 #include <limits.h>
 #include <string.h>
-/* use preprocessor to verify type length */
-#if (UCHAR_MAX != 0xFF)
-#error This program expects unsigned char to be 1 byte
-#endif /*  */
 
 #define NUM_BITS    256
 #define NUM_BYTES   32          /* 32 x 8 = 256 */
