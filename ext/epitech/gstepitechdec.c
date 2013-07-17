@@ -205,11 +205,8 @@ epitech_dec_handle_frame (GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
 
     data_in = info_in.data;
 
-    //    GST_ERROR("info size : %d", (int) info_in.size);
-    //res = huffman_decode ((unsigned char *) data_in, info_in.size, &res_size);
-    //GST_ERROR("res size : %d", res_size);
-    (void) res_size;
-    rle_decode ((unsigned char *) data_in, (unsigned char *) dct_two);
+    res = huffman_decode ((unsigned char *) data_in, info_in.size, &res_size);
+    rle_decode ((unsigned char *) res, (unsigned char *) dct_two);
     restored = dct_decode (dct_two, 240, 320 * 2);
     res = rgb422 (restored, 240, 320);
 

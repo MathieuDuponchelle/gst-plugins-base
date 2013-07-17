@@ -224,16 +224,15 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
 
     GST_ERROR ("rle size : %d", size);
 
-    //    res = huffman_encode ((unsigned char *) rle, size, &res_size);
-
-    res = rle;
-    res_size = size;
+    res = huffman_encode ((unsigned char *) rle, size, &res_size);
 
     GST_ERROR ("Encoded buffer, original / compressed %u %u",
         (unsigned int) info_in.size, res_size);
 
     /* Here we unmap the buffers. No more access is possible */
     gst_buffer_unmap (frame->input_buffer, &info_in);
+
+    GST_VIDEO_CODEC_FRAME_SET_SYNC_POINT (frame);
 
     /* Here the purpose is to do frame->output_buffer = outbuf */
     /* For now let's just copy the input_buffer */
