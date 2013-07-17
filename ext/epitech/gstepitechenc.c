@@ -220,11 +220,13 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
     buffer_yuv = yuv422 (data_in, 240, 320);
     dct = dct_encode (buffer_yuv, 240, 320 * 2);
     rle_encode ((unsigned char *) dct, rle, &size);
-    (void) dct;
 
-    GST_ERROR ("rle size : %d", size);
+    free (buffer_yuv);
+    free (dct);
 
     res = huffman_encode ((unsigned char *) rle, size, &res_size);
+
+    free (rle);
 
     GST_ERROR ("Encoded buffer, original / compressed %u %u",
         (unsigned int) info_in.size, res_size);

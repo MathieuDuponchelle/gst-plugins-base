@@ -208,7 +208,10 @@ epitech_dec_handle_frame (GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
     res = huffman_decode ((unsigned char *) data_in, info_in.size, &res_size);
     rle_decode ((unsigned char *) res, (unsigned char *) dct_two);
     restored = dct_decode (dct_two, 240, 320 * 2);
+    free (dct_two);
+    free (res);
     res = rgb422 (restored, 240, 320);
+    free (restored);
 
     if (!dumped) {
       dumpToFile (res, "srcd.rgb", 240 * 320 * 3);
