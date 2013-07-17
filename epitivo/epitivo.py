@@ -15,7 +15,7 @@ def unlink_it(pad, info, pipeline):
     return Gst.PadProbeReturn.REMOVE
 
 def restart_pipeline():
-    new_pipeline = Gst.parse_launch("filesrc location=test.ogv ! matroskademux ! avdec_h264 ! xvimagesink")
+    new_pipeline = Gst.parse_launch("filesrc location=test.ogv ! matroskademux ! epitechdec ! videoconvert ! xvimagesink")
     new_pipeline.set_state(Gst.State.PLAYING)
     return False
 
@@ -70,7 +70,7 @@ class Epitivo:
         self.slider.show()
 
     def _createPipeline(self):
-        pipeline = Gst.parse_launch("v4l2src ! video/x-raw, framerate=30/1 !  queue !  tee name=t ! queue name=queue1 ! xvimagesink name=sink_bill_gates sync=false t. ! x264enc tune=zerolatency ! matroskamux ! filesink location=test.ogv")
+        pipeline = Gst.parse_launch("v4l2src ! video/x-raw, width=320, height=240, format=RGB ! tee name=t ! queue name=queue1 ! videoconvert ! xvimagesink name=sink_bill_gates sync=false t. ! epitechenc ! matroskamux ! filesink location=test.ogv")
         self.pipeline = SimplePipeline(pipeline, pipeline.get_by_name("sink_bill_gates"))
         self.window.connect("draw", self._setPipelineOnViewer)
         self.replay_pipeline = None
@@ -99,7 +99,7 @@ class Epitivo:
             self.replay_pipeline._pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, value)
             return
         self.viewer.hide()
-        pipeline = Gst.parse_launch("filesrc location=test.ogv ! matroskademux ! avdec_h264 ! xvimagesink name=sink_bill_gates")
+        pipeline = Gst.parse_launch("filesrc location=test.ogv ! matroskademux ! epitechdec ! videoconvert ! xvimagesink name=sink_bill_gates")
         self.replay_viewer.show()
         self.replay_viewer.connect("draw", self._setReplayPipelineOnReplayViewer, value)
         self.replay_pipeline = SimplePipeline(pipeline, pipeline.get_by_name("sink_bill_gates"))

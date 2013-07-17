@@ -219,6 +219,8 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
     /* Here we unmap the buffers. No more access is possible */
     gst_buffer_unmap (frame->input_buffer, &info_in);
 
+    GST_VIDEO_CODEC_FRAME_SET_SYNC_POINT (frame);
+
     /* Here the purpose is to do frame->output_buffer = outbuf */
     /* For now let's just copy the input_buffer */
     frame->output_buffer = gst_buffer_new_wrapped (res, res_size);
