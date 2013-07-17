@@ -39,6 +39,9 @@
 #include <gst/video/gstvideometa.h>
 
 #include "huffman.h"
+#include "dct.h"
+#include "yuv.h"
+#include "rle.h"
 #include "gstepitechenc.h"
 
 #define GST_CAT_DEFAULT epitechenc_debug
@@ -192,6 +195,10 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
     const guint8 *data_in;
     void *res;
     unsigned int res_size;
+    unsigned int size = 240 * 320 * 2;
+    char *dct;
+    unsigned char *buffer_yuv;
+    unsigned char *rle = g_malloc (240 * 320 * 2);
 
     if (!enc->format_set) {
       GstCaps *caps;
@@ -210,7 +217,17 @@ epitech_enc_handle_frame (GstVideoEncoder * benc, GstVideoCodecFrame * frame)
 
     data_in = info_in.data;
 
-    res = huffman_encode ((unsigned char *) data_in, info_in.size, &res_size);
+    buffer_yuv = yuv422 (data_in, 240, 320);
+    dct = dct_encode (buffer_yuv, 240, 320 * 2);
+    rle_encode ((unsigned char *) dct, rle, &size);
+    (void) dct;
+
+    GST_ERROR ("rle size : %d", size);
+
+    //    res = huffman_encode ((unsigned char *) rle, size, &res_size);
+
+    res = rle;
+    res_size = size;
 
     GST_ERROR ("Encoded buffer, original / compressed %u %u",
         (unsigned int) info_in.size, res_size);

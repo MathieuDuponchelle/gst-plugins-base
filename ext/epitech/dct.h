@@ -19,16 +19,16 @@
   if (v == 0) Cv = INVERSE_SQRT_2; else Cv = 1.0; \
 }
 
-static int quantum_matrix[8][8] = {
-  {16, 11, 10, 16, 25, 40, 51, 61},
-  {12, 12, 14, 19, 26, 58, 60, 55},
-  {14, 13, 16, 24, 40, 57, 69, 56},
-  {14, 17, 22, 29, 51, 87, 80, 62},
-  {18, 22, 37, 56, 68, 109, 103, 77},
-  {24, 35, 55, 64, 81, 104, 113, 92},
-  {49, 64, 79, 87, 103, 121, 120, 101},
-  {72, 92, 95, 98, 112, 100, 103, 99}
-};
+/* static int quantum_matrix[8][8] = { */
+/*   {16, 11, 10, 16, 25, 40, 51, 61}, */
+/*   {12, 12, 14, 19, 26, 58, 60, 55}, */
+/*   {14, 13, 16, 24, 40, 57, 69, 56}, */
+/*   {14, 17, 22, 29, 51, 87, 80, 62}, */
+/*   {18, 22, 37, 56, 68, 109, 103, 77}, */
+/*   {24, 35, 55, 64, 81, 104, 113, 92}, */
+/*   {49, 64, 79, 87, 103, 121, 120, 101}, */
+/*   {72, 92, 95, 98, 112, 100, 103, 99} */
+/* }; */
 
 
 /* system dependent types */
@@ -38,5 +38,7 @@ typedef unsigned int count_t;   /* unsigned 32 bit for character counts */
 
 char *dct_encode (const unsigned char *input, const int height, const int width);
 unsigned char *dct_decode (const char *input, const int height, const int width);
+void
+dumpToFile (unsigned char *buffer, const char *fName, count_t count);
 
 #endif

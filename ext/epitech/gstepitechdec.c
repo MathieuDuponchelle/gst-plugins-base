@@ -38,6 +38,9 @@
 #include <gst/video/gstvideopool.h>
 
 #include "huffman.h"
+#include "yuv.h"
+#include "rle.h"
+#include "dct.h"
 
 #define GST_CAT_DEFAULT epitechdec_debug
 GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
@@ -175,6 +178,7 @@ static GstFlowReturn
 epitech_dec_handle_frame (GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
 {
   GstEpitechDec *dec;
+  static gboolean dumped = TRUE;
 
   dec = GST_EPITECH_DEC (bdec);
 
@@ -194,17 +198,30 @@ epitech_dec_handle_frame (GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
     const guint8 *data_in;
     void *res;
     unsigned int res_size;
+    char *dct_two = malloc (240 * 320 * 3);
+    unsigned char *restored;
 
     gst_buffer_map (frame->input_buffer, &info_in, GST_MAP_READ);
 
     data_in = info_in.data;
 
-    res = huffman_decode ((unsigned char *) data_in, info_in.size, &res_size);
+    //    GST_ERROR("info size : %d", (int) info_in.size);
+    //res = huffman_decode ((unsigned char *) data_in, info_in.size, &res_size);
+    //GST_ERROR("res size : %d", res_size);
+    (void) res_size;
+    rle_decode ((unsigned char *) data_in, (unsigned char *) dct_two);
+    restored = dct_decode (dct_two, 240, 320 * 2);
+    res = rgb422 (restored, 240, 320);
+
+    if (!dumped) {
+      dumpToFile (res, "srcd.rgb", 240 * 320 * 3);
+      dumped = TRUE;
+    }
 
     /* Here we unmap the buffers. No more access is possible */
     gst_buffer_unmap (frame->input_buffer, &info_in);
 
-    frame->output_buffer = gst_buffer_new_wrapped (res, res_size);
+    frame->output_buffer = gst_buffer_new_wrapped (res, 240 * 320 * 3);
 
     GST_BUFFER_TIMESTAMP (frame->output_buffer) =
         GST_BUFFER_TIMESTAMP (frame->input_buffer);

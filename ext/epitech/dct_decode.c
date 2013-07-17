@@ -3,6 +3,17 @@
 #include <math.h>
 #include "dct.h"
 
+static int quantum_matrix[8][8] = {
+  {16, 11, 10, 16, 25, 40, 51, 61},
+  {12, 12, 14, 19, 26, 58, 60, 55},
+  {14, 13, 16, 24, 40, 57, 69, 56},
+  {14, 17, 22, 29, 51, 87, 80, 62},
+  {18, 22, 37, 56, 68, 109, 103, 77},
+  {24, 35, 55, 64, 81, 104, 113, 92},
+  {49, 64, 79, 87, 103, 121, 120, 101},
+  {72, 92, 95, 98, 112, 100, 103, 99}
+};
+
 static void
 idct (unsigned char *dst, const double data[8][8], const int xpos,
     const int ypos, const int width)
@@ -72,7 +83,7 @@ dct_decode (const char *input, const int height, const int width)
     tmp_i = i * 8;
     for (int j = 0; j < width / 8; j++) {
       read_from_buff (input, block, block_num * 64);
-      idct (res, block, j * 8, tmp_i, width);
+      idct (res, (const double (*)[8]) block, j * 8, tmp_i, width);
       block_num++;
     }
   }

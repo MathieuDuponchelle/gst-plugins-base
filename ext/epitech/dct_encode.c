@@ -12,6 +12,17 @@
  *       *      else a(x) = 1
  *        */
 
+static int quantum_matrix[8][8] = {
+  {16, 11, 10, 16, 25, 40, 51, 61},
+  {12, 12, 14, 19, 26, 58, 60, 55},
+  {14, 13, 16, 24, 40, 57, 69, 56},
+  {14, 17, 22, 29, 51, 87, 80, 62},
+  {18, 22, 37, 56, 68, 109, 103, 77},
+  {24, 35, 55, 64, 81, 104, 113, 92},
+  {49, 64, 79, 87, 103, 121, 120, 101},
+  {72, 92, 95, 98, 112, 100, 103, 99}
+};
+
 static void
 dct_1d (const double *in, double *out, const int count)
 {
@@ -87,14 +98,31 @@ char *
 dct_encode (const unsigned char *input, const int height, const int width)
 {
   char *res = malloc (height * width);
-  double block[8][8] = { 0 };
+  double block[8][8] = { {0} };
   int block_num = 0;
 
   for (int i = 0; i < height / 8; i++)
     for (int j = 0; j < width / 8; j++) {
       dct (input, block, j * 8, i * 8, width);
-      write_to_buff (res, block, block_num * 64);
+      write_to_buff (res, (const double (*)[8]) block, block_num * 64);
       block_num++;
     }
   return res;
+}
+
+void
+dumpToFile (unsigned char *buffer, const char *fName, count_t count)
+{
+  int i = 0;
+  FILE *fpOut;
+
+  if ((fpOut = fopen (fName, "wb")) == NULL) {
+    perror (fName);
+    exit (EXIT_FAILURE);
+  }
+  while (i < count) {
+    fputc (buffer[i], fpOut);
+    i += 1;
+  }
+  fclose (fpOut);
 }

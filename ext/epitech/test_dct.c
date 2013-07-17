@@ -5,22 +5,6 @@
 #include "dct.h"
 #include "yuv.h"
 #include "rle.h"
-static void
-dumpToFile (unsigned char *buffer, const char *fName, count_t count)
-{
-  int i = 0;
-  FILE *fpOut;
-
-  if ((fpOut = fopen (fName, "wb")) == NULL) {
-    perror (fName);
-    exit (EXIT_FAILURE);
-  }
-  while (i < count) {
-    fputc (buffer[i], fpOut);
-    i += 1;
-  }
-  fclose (fpOut);
-}
 
 static void
 print_table (double table[8][8])

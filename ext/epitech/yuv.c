@@ -1,4 +1,5 @@
 #include <math.h>
+#include <glib.h>
 
 #include "yuv.h"
 
@@ -44,7 +45,7 @@ rgb422 (const unsigned char *yuv, const int rows, const int cols)
   int i = 0;
   int j = 0;
 
-  unsigned char *rgb = malloc (sizeof (unsigned char) * size);
+  unsigned char *rgb = g_malloc (sizeof (unsigned char) * size);
 
   while (i < size) {
     int y1 = yuv[j + 0];
