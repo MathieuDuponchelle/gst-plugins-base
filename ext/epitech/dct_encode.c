@@ -104,7 +104,7 @@ dct_encode (const unsigned char *input, const int height, const int width)
   for (int i = 0; i < height / 8; i++)
     for (int j = 0; j < width / 8; j++) {
       dct (input, block, j * 8, i * 8, width);
-      write_to_buff (res, (const double (*)[8]) block, block_num * 64);
+      write_to_buff (res, block, block_num * 64);
       block_num++;
     }
   return res;

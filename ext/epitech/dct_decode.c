@@ -83,7 +83,7 @@ dct_decode (const char *input, const int height, const int width)
     tmp_i = i * 8;
     for (int j = 0; j < width / 8; j++) {
       read_from_buff (input, block, block_num * 64);
-      idct (res, (const double (*)[8]) block, j * 8, tmp_i, width);
+      idct (res, block, j * 8, tmp_i, width);
       block_num++;
     }
   }
