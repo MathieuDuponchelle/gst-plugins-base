@@ -3,34 +3,45 @@
 #include <math.h>
 #include "dct.h"
 
+const double idct_cos[8][8] = {
+  {1.000000, 0.980785, 0.923880, 0.831470, 0.707107, 0.555570, 0.382683,
+      0.195090},
+  {1.000000, 0.831470, 0.382683, -0.195090, -0.707107, -0.980785, -0.923880,
+      -0.555570},
+  {1.000000, 0.555570, -0.382683, -0.980785, -0.707107, 0.195090, 0.923880,
+      0.831470},
+  {1.000000, 0.195090, -0.923880, -0.555570, 0.707107, 0.831470, -0.382683,
+      -0.980785},
+  {1.000000, -0.195090, -0.923880, 0.555570, 0.707107, -0.831470, -0.382683,
+      0.980785},
+  {1.000000, -0.555570, -0.382683, 0.980785, -0.707107, -0.195090, 0.923880,
+      -0.831470},
+  {1.000000, -0.831470, 0.382683, 0.195090, -0.707107, 0.980785, -0.923880,
+      0.555570},
+  {1.000000, -0.980785, 0.923880, -0.831470, 0.707107, -0.555570, 0.382683,
+      -0.195090}
+};
 
 static void
 idct (unsigned char *dst, double data[8][8], const int xpos,
     const int ypos, const int width)
 {
   double Cu, Cv;
-  double pre_cos_y;
-  double pre_cos_x;
-  double cos_v;
   unsigned int pre_pos_y;
 
   /* iDCT */
   for (int y = 0; y < 8; y++) {
-    pre_cos_y = (2 * y + 1) * PI_DIVIDED_16;
     pre_pos_y = (y + ypos) * width;
 
     for (int x = 0; x < 8; x++) {
       double z = 0.0;
-      pre_cos_x = (2 * x + 1) * PI_DIVIDED_16;
 
       for (int v = 0; v < 8; v++) {
         COEFF_V (Cv, v);
-        cos_v = cos (pre_cos_y * v);
-
         for (int u = 0; u < 8; u++) {
 
           COEFF_U (Cu, u);
-          z += Cu * Cv * data[v][u] * cos ((double) u * pre_cos_x) * cos_v;
+          z += Cu * Cv * data[v][u] * idct_cos[x][u] * idct_cos[y][v];
         }
       }
 
