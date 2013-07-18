@@ -29,7 +29,6 @@ from gi.repository import GES
 GdkX11  # pyflakes
 from gi.repository import GstVideo
 GstVideo    # pyflakes
-import cairo
 
 from gettext import gettext as _
 from time import time
@@ -283,7 +282,6 @@ class PitiviViewer(Gtk.VBox, Loggable):
             self.target.box.update_size(area)
             self.target.zoom = zoom
             self.target.sink = self.sink
-            self.target.renderbox()
 
     def _playButtonCb(self, unused_button, playing):
         self.app.togglePlayback()
@@ -478,13 +476,11 @@ class ViewerWidget(Gtk.DrawingArea, Loggable):
         if not self.box:
             self.box = TransformationBox(self.settings)
             self.box.init_size(self.area)
-            self._update_gradient()
             self.connect("button-press-event", self.button_press_event)
             self.connect("button-release-event", self.button_release_event)
             self.connect("motion-notify-event", self.motion_notify_event)
             self.connect("size-allocate", self._sizeCb)
             self.box.set_transformation_properties(self.transformation_properties)
-            self.renderbox()
 
     def _sizeCb(self, widget, area):
         # The transformation box is cleared when using regular rendering
@@ -554,19 +550,13 @@ class ViewerWidget(Gtk.DrawingArea, Loggable):
         self.pipeline = pipeline
         if state == Gst.State.PAUSED:
             self._store_pixbuf()
-        self.renderbox()
 
     def motion_notify_event(self, widget, event):
-        if event.get_state() & Gdk.ModifierType.BUTTON1_MASK:
-            if self.box.transform(event):
-                if self.stored:
-                    self.renderbox()
         return True
 
     def do_expose_event(self, event):
         self.area = event.area
         if self.box:
-            self._update_gradient()
             if self.zoom != 1.0:
                 width = int(float(self.area.width) * self.zoom)
                 height = int(float(self.area.height) * self.zoom)
@@ -577,44 +567,6 @@ class ViewerWidget(Gtk.DrawingArea, Loggable):
             else:
                 area = self.area
             self.box.update_size(area)
-            self.renderbox()
-
-    def _update_gradient(self):
-        self.gradient_background = cairo.LinearGradient(0, 0, 0, self.area.height)
-        self.gradient_background.add_color_stop_rgb(0.00, .1, .1, .1)
-        self.gradient_background.add_color_stop_rgb(0.50, .2, .2, .2)
-        self.gradient_background.add_color_stop_rgb(1.00, .5, .5, .5)
-
-    def renderbox(self):
-        if self.box:
-            cr = self.window.cairo_create()
-            cr.push_group()
-
-            if self.zoom != 1.0:
-                # draw some nice background for zoom out
-                cr.set_source(self.gradient_background)
-                cr.rectangle(0, 0, self.area.width, self.area.height)
-                cr.fill()
-
-                # translate the drawing of the zoomed out box
-                cr.translate(self.box.area.x, self.box.area.y)
-
-            # clear the drawingarea with the last known clean video frame
-            # translate when zoomed out
-            if self.pixbuf:
-                if self.box.area.width != self.pixbuf.get_width():
-                    scale = float(self.box.area.width) / float(self.pixbuf.get_width())
-                    cr.save()
-                    cr.scale(scale, scale)
-                cr.set_source_pixbuf(self.pixbuf, 0, 0)
-                cr.paint()
-                if self.box.area.width != self.pixbuf.get_width():
-                    cr.restore()
-
-            if self.pipeline and self.pipeline.get_state()[1] == Gst.State.PAUSED:
-                self.box.draw(cr)
-            cr.pop_group_to_source()
-            cr.paint()
 
 
 class PlayPauseButton(Gtk.Button, Loggable):
