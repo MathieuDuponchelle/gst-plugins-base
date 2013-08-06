@@ -571,6 +571,8 @@ fill_planes (GstVideoInfo * info)
       break;
     case GST_VIDEO_FORMAT_ENCODED:
       break;
+    case GST_VIDEO_FORMAT_LAST:
+      /* Fallthrough */
     case GST_VIDEO_FORMAT_UNKNOWN:
       GST_ERROR ("invalid format");
       g_warning ("invalid format");
