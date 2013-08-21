@@ -157,7 +157,8 @@ GType
 gst_audio_downmix_meta_api_get_type (void)
 {
   static volatile GType type;
-  static const gchar *tags[] = { NULL };
+  static const gchar *tags[] =
+      { GST_AUDIO_METADATA, GST_AUDIO_CHANNELS_METADATA, NULL };
 
   if (g_once_init_enter (&type)) {
     GType _type = gst_meta_api_type_register ("GstAudioDownmixMetaAPI", tags);

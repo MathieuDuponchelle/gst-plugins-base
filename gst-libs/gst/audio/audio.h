@@ -51,6 +51,23 @@ G_BEGIN_DECLS
 #define GST_CLOCK_TIME_TO_FRAMES(clocktime, rate) \
   gst_util_uint64_scale_round (clocktime, rate, GST_SECOND)
 
+/* metadata macros */
+
+/**
+ * GST_AUDIO_METADATA:
+ * This metadata is relevant for audio streams.
+ *
+ * Since: 1.2
+ */
+#define GST_AUDIO_METADATA "audio"
+/**
+ * GST_AUDIO_CHANNELS_METADATA:
+ * This metadata stays relevant as long as channels are unchanged.
+ *
+ * Since: 1.2
+ */
+#define GST_AUDIO_CHANNELS_METADATA "channels"
+
 /*
  * this library defines and implements some helper functions for audio
  * handling

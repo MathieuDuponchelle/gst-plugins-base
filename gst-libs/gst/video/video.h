@@ -53,6 +53,36 @@ struct _GstVideoAlignment
   guint stride_align[GST_VIDEO_MAX_PLANES];
 };
 
+/* metadata macros */
+/**
+ * GST_VIDEO_METADATA:
+ * This metadata is relevant for video streams.
+ *
+ * Since: 1.2
+ */
+#define GST_VIDEO_METADATA "video"
+/**
+ * GST_VIDEO_ORIENTATION_METADATA:
+ * This metadata stays relevant as long as video orientation is unchanged.
+ *
+ * Since: 1.2
+ */
+#define GST_VIDEO_ORIENTATION_METADATA "orientation"
+/**
+ * VIDEO_SIZE_METADATA:
+ * This metadata stays relevant as long as video size is unchanged.
+ *
+ * Since: 1.2
+ */
+#define GST_VIDEO_SIZE_METADATA "size"
+/**
+ * GST_VIDEO_COLORSPACE_METADATA:
+ * This metadata stays relevant as long as video colorspace is unchanged.
+ *
+ * Since: 1.2
+ */
+#define GST_VIDEO_COLORSPACE_METADATA "colorspace"
+
 void           gst_video_alignment_reset         (GstVideoAlignment *align);
 
 
