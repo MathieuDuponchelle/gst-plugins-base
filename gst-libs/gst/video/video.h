@@ -129,5 +129,8 @@ G_END_DECLS
 #include <gst/video/videoorientation.h>
 #include <gst/video/video-overlay-composition.h>
 #include <gst/video/videooverlay.h>
+#include <gst/video/videoconvert.h>
+#include <gst/video/gstbasemixer.h>
+#include <gst/video/gstbasemixerpad.h>
 
 #endif /* __GST_VIDEO_H__ */

@@ -38,7 +38,10 @@ libgstvideo_@GST_API_VERSION@_la_SOURCES = \
 	gstvideoencoder.c       \
 	gstvideoutils.c		\
 	video-blend.c		\
-	video-overlay-composition.c
+	video-overlay-composition.c \
+	videoconvert.c \
+	gstbasemixer.c \
+	gstcms.c
 
 nodist_libgstvideo_@GST_API_VERSION@_la_SOURCES = $(BUILT_SOURCES)
 
@@ -64,7 +67,9 @@ libgstvideo_@GST_API_VERSION@include_HEADERS = \
 	gstvideoencoder.h       \
 	gstvideoutils.h		\
 	video-blend.h		\
-	video-overlay-composition.h
+	video-overlay-composition.h \
+	gstbasemixer.h		\
+	gstbasemixerpad.h
 
 nodist_libgstvideo_@GST_API_VERSION@include_HEADERS = $(built_headers)
 
