@@ -3,6 +3,8 @@
 //#include "interpolator_sV.h"
 #include "flowField_sV.h"
 #include "interpolate_sV.h"
+#include "abstractFlowSource_sV.h"
+#include "flowSourceOpenCV_sV.h"
 #include "math.h"
 //#include <QtCore/QObject>
 
@@ -15,6 +17,9 @@ enum InterpolationType { InterpolationType_Forward = 0, InterpolationType_Forwar
 static gboolean cpp_interpolate(GstBuffer *left, GstBuffer *right)
 {
   InterpolationType interpolation = InterpolationType_Twoway;
+  static AbstractFlowSource_sV *m_flowSource = NULL;
+  if (m_flowSource == NULL)
+    m_flowSource = new FlowSourceOpenCV_sV ();
 
     // if (frame > pr->frameSource()->framesCount()) {
     //   return FALSE;
@@ -29,10 +34,12 @@ static gboolean cpp_interpolate(GstBuffer *left, GstBuffer *right)
         const float pos = 0.5;
 
         if (interpolation == InterpolationType_Twoway) {
-            FlowField_sV *forwardFlow = NULL;
-            FlowField_sV *backwardFlow = NULL;
-            // FlowField_sV *forwardFlow = pr->requestFlow(floor(frame), floor(frame)+1, size);
-            // FlowField_sV *backwardFlow = pr->requestFlow(floor(frame)+1, floor(frame), size);
+	  //            FlowField_sV *forwardFlow = m_flowSource->buildFlow;
+	  FlowField_sV *forwardFlow = m_flowSource->buildFlow(left, right);
+	  FlowField_sV *backwardFlow = NULL;
+	  //FlowField_sV *forwardFlow = NULL;
+	  // FlowField_sV *forwardFlow = pr->requestFlow(floor(frame), floor(frame)+1, size);
+	  // FlowField_sV *backwardFlow = pr->requestFlow(floor(frame)+1, floor(frame), size);
 
             g_assert(forwardFlow != NULL);
             g_assert(backwardFlow != NULL);
