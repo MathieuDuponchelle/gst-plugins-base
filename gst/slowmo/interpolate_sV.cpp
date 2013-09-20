@@ -39,15 +39,19 @@ the Free Software Foundation, either version 3 of the License, or
 
 enum ColorComponent { CC_Red, CC_Green, CC_Blue };
 
-static void
-get_pixel_at(const GstVideoFrame *frame, guint8 *data, int x, int y, QColor *res)
-{
-  int pixel_stride = frame->info.finfo->pixel_stride[0];
-  int width = frame->info.width;
+// FIXME : KILL ME PLEASE
+#define WIDTH 320
+#define HEIGHT 240
+#define PIXEL_STRIDE 3
 
-  res->redF = data[pixel_stride * width * y + x * pixel_stride];
-  res->greenF = data[pixel_stride * width * y + x * pixel_stride + 1];
-  res->blueF = data[pixel_stride * width * y + x * pixel_stride + 2];
+static void
+get_pixel_at(guint8 *data, int x, int y, QColor *res)
+{
+  int lstride = PIXEL_STRIDE * WIDTH;
+
+  res->redF = data[lstride * y + x * PIXEL_STRIDE];
+  res->greenF = data[lstride * y + x * PIXEL_STRIDE + 1];
+  res->blueF = data[lstride * y + x * PIXEL_STRIDE + 2];
   // FIXME -> accept RGBA;
   //  res.alphaF = data[pixel_stride * width * y + x * pixel_stride + 3];
 }
@@ -79,11 +83,11 @@ float interpB(const QColor cols[2][2], float x, float y)
         + x*y * cols[1][1].blueF;
 }
 
-void Interpolate_sV::interpolate(const GstVideoFrame *in, float x, float y, QColor *out)
+void Interpolate_sV::interpolate(GstBuffer *in, float x, float y, QColor *out)
 {
   GstMapInfo info;
 
-  gst_buffer_map(in->buffer, &info, GST_MAP_READ);
+  gst_buffer_map(in, &info, GST_MAP_READ);
 
 #ifdef DEBUG_I
     if (x >= in.width()-1 || y >= in.height()-1) {
@@ -93,10 +97,10 @@ void Interpolate_sV::interpolate(const GstVideoFrame *in, float x, float y, QCol
     QColor carr[2][2];
     int floorX = floor(x);
     int floorY = floor(y);
-    get_pixel_at(in, info.data, floorX, floorY, &(carr[0][0]));
-    get_pixel_at(in, info.data, floorX, floorY+1, &(carr[0][1]));
-    get_pixel_at(in, info.data, floorX+1, floorY, &(carr[1][0]));
-    get_pixel_at(in, info.data, floorX+1, floorY+1, &(carr[1][1]));
+    get_pixel_at(info.data, floorX, floorY, &(carr[0][0]));
+    get_pixel_at(info.data, floorX, floorY+1, &(carr[0][1]));
+    get_pixel_at(info.data, floorX+1, floorY, &(carr[1][0]));
+    get_pixel_at(info.data, floorX+1, floorY+1, &(carr[1][1]));
 
     float dx = x - floorX;
     float dy = y - floorY;
@@ -104,7 +108,7 @@ void Interpolate_sV::interpolate(const GstVideoFrame *in, float x, float y, QCol
     out->greenF = interpG(carr, dx, dy);
     out->blueF = interpB(carr, dx, dy);
 
-    gst_buffer_unmap(in->buffer, &info);
+    gst_buffer_unmap(in, &info);
 }
 
 /// validated. correct.
@@ -147,21 +151,20 @@ void Interpolate_sV::blend(ColorMatrix4x4 &c, const QColor &blendCol, float posX
 }
 
 static void
-set_pixel_at(GstVideoFrame *frame, guint8 *data, int x, int y, float r, float g, float b)
+set_pixel_at(GstBuffer *frame, guint8 *data, int x, int y, float r, float g, float b)
 {
-  int pixel_stride = frame->info.finfo->pixel_stride[0];
-  int width = frame->info.width;
+  int lstride = PIXEL_STRIDE * WIDTH;
 
-  data[pixel_stride * width * y + x * pixel_stride] = r;
-  data[pixel_stride * width * y + x * pixel_stride + 1] = g;
-  data[pixel_stride * width * y + x * pixel_stride + 2] = b;
+  data[lstride * y + x * PIXEL_STRIDE] = r;
+  data[lstride * y + x * PIXEL_STRIDE + 1] = g;
+  data[lstride * y + x * PIXEL_STRIDE + 2] = b;
 }
 
-void Interpolate_sV::twowayFlow(const GstVideoFrame *left, const GstVideoFrame *right, const FlowField_sV *flowForward, const FlowField_sV *flowBackward, float pos, GstVideoFrame *output)
+void Interpolate_sV::twowayFlow(GstBuffer *left, GstBuffer *right, const FlowField_sV *flowForward, const FlowField_sV *flowBackward, float pos, GstBuffer *output)
 {
 #ifdef INTERPOLATE
-    const float Wmax = left->info.width - 1.0001; // A little less than the maximum pixel to avoid out of bounds when interpolating
-    const float Hmax = left->info.height - 1.0001;
+    const float Wmax = WIDTH - 1.0001; // A little less than the maximum pixel to avoid out of bounds when interpolating
+    const float Hmax = HEIGHT - 1.0001;
     float posX, posY;
 #endif
 
@@ -170,9 +173,9 @@ void Interpolate_sV::twowayFlow(const GstVideoFrame *left, const GstVideoFrame *
     GstMapInfo info;
     Interpolate_sV::Movement forward, backward;
 
-    gst_buffer_map(output->buffer, &info, GST_MAP_WRITE);
-    for (int y = 0; y < left->info.height; y++) {
-      for (int x = 0; x < left->info.width; x++) {
+    gst_buffer_map(output, &info, GST_MAP_WRITE);
+    for (int y = 0; y < HEIGHT; y++) {
+      for (int x = 0; x < WIDTH; x++) {
             forward.moveX = flowForward->x(x, y);
             forward.moveY = flowForward->y(x, y);
 
@@ -202,16 +205,16 @@ void Interpolate_sV::twowayFlow(const GstVideoFrame *left, const GstVideoFrame *
 	    set_pixel_at(output, info.data, x, y, CLAMP1(r), CLAMP1(g), CLAMP1(b));
         }
     }
-    gst_buffer_unmap(output->buffer, &info);
+    gst_buffer_unmap(output, &info);
 }
 
 
-void Interpolate_sV::newTwowayFlow(const GstVideoFrame *left, const GstVideoFrame *right,
+void Interpolate_sV::newTwowayFlow(GstBuffer *left, GstBuffer *right,
                                    const FlowField_sV *flowLeftRight, const FlowField_sV *flowRightLeft,
-                                   float pos, GstVideoFrame *output)
+                                   float pos, GstBuffer *output)
 {
-    const int W = left->info.width;
-    const int H = left->info.height;
+    const int W = WIDTH;
+    const int H = HEIGHT;
 
 
     SourceField_sV leftSourcePixel(flowLeftRight, pos);
@@ -238,7 +241,7 @@ void Interpolate_sV::newTwowayFlow(const GstVideoFrame *left, const GstVideoFram
     QColor colLeft, colRight;
     GstMapInfo info;
 
-    gst_buffer_map(output->buffer, &info, GST_MAP_WRITE);
+    gst_buffer_map(output, &info, GST_MAP_WRITE);
     for (int y = 0; y < H; y++) {
         for (int x = 0; x < W; x++) {
 
@@ -330,26 +333,26 @@ void Interpolate_sV::newTwowayFlow(const GstVideoFrame *left, const GstVideoFram
 #endif
         }
     }
-    gst_buffer_unmap(output->buffer, &info);
+    gst_buffer_unmap(output, &info);
 }
 
-void Interpolate_sV::forwardFlow(const GstVideoFrame *left, const FlowField_sV *flow, float pos, GstVideoFrame *output)
+void Interpolate_sV::forwardFlow(GstBuffer *left, const FlowField_sV *flow, float pos, GstBuffer *output)
 {
   //    qDebug() << "Interpolating flow at offset " << pos;
 #ifdef INTERPOLATE
     float posX, posY;
-    const float Wmax = left->info.width-1.0001;
-    const float Hmax = left->info.height-1.0001;
+    const float Wmax = WIDTH-1.0001;
+    const float Hmax = HEIGHT-1.0001;
 #endif
 
     QColor colOut;
     Interpolate_sV::Movement forward;    
     GstMapInfo info;
 
-    gst_buffer_map(output->buffer, &info, GST_MAP_WRITE);
+    gst_buffer_map(output, &info, GST_MAP_WRITE);
 
-    for (int y = 0; y < left->info.height; y++) {
-      for (int x = 0; x < left->info.width; x++) {
+    for (int y = 0; y < HEIGHT; y++) {
+      for (int x = 0; x < WIDTH; x++) {
             // Forward flow from the left to the right image tells for each pixel in the right image
             // from which location in the left image the pixel has come from.
             forward.moveX = flow->x(x, y);
@@ -367,20 +370,20 @@ void Interpolate_sV::forwardFlow(const GstVideoFrame *left, const FlowField_sV *
 	    set_pixel_at(output, info.data, x, y, colOut.redF, colOut.greenF, colOut.blueF);
 	}
     }
-    gst_buffer_unmap(output->buffer, &info);
+    gst_buffer_unmap(output, &info);
 }
 
-void Interpolate_sV::newForwardFlow(const GstVideoFrame *left, const FlowField_sV *flow, float pos, GstVideoFrame *output)
+void Interpolate_sV::newForwardFlow(GstBuffer *left, const FlowField_sV *flow, float pos, GstBuffer *output)
 {
-    const int W = left->info.width;
-    const int H = left->info.height;
+    const int W = WIDTH;
+    const int H = HEIGHT;
     GstMapInfo info;
 
     // Calculate the source flow field
     SourceField_sV field(flow, pos);
     field.inpaint();
 
-    gst_buffer_map(output->buffer, &info, GST_MAP_WRITE);
+    gst_buffer_map(output, &info, GST_MAP_WRITE);
 
     // Draw the pixels
     float fx, fy;
@@ -398,7 +401,7 @@ void Interpolate_sV::newForwardFlow(const GstVideoFrame *left, const FlowField_s
 	    set_pixel_at(output, info.data, x, y, colLeft.redF, colLeft.greenF, colLeft.blueF);
         }
     }
-    gst_buffer_unmap(output->buffer, &info);
+    gst_buffer_unmap(output, &info);
 }
 
 
@@ -415,10 +418,10 @@ void Interpolate_sV::newForwardFlow(const GstVideoFrame *left, const FlowField_s
      B next (can be NULL)
   \endcode
   */
-void Interpolate_sV::bezierFlow(const GstVideoFrame *prev, const GstVideoFrame *right, const FlowField_sV *flowPrevCurr, const FlowField_sV *flowCurrNext, float pos, GstVideoFrame *output)
+void Interpolate_sV::bezierFlow(GstBuffer *prev, GstBuffer *right, const FlowField_sV *flowPrevCurr, const FlowField_sV *flowCurrNext, float pos, GstBuffer *output)
 {
-    const float Wmax = prev->info.width - 1.0001;
-    const float Hmax = prev->info.height - 1.0001;
+    const float Wmax = WIDTH - 1.0001;
+    const float Hmax = HEIGHT - 1.0001;
 
     Vector_sV a, b, c, tmpA, tmpB, tmpC, tmpD;
     Vector_sV Ta, Sa;
@@ -428,10 +431,10 @@ void Interpolate_sV::bezierFlow(const GstVideoFrame *prev, const GstVideoFrame *
 
     GstMapInfo info;
 
-    gst_buffer_map(output->buffer, &info, GST_MAP_WRITE);
+    gst_buffer_map(output, &info, GST_MAP_WRITE);
 
-    for (int y = 0; y < prev->info.height; y++) {
-      for (int x = 0; x < prev->info.width; x++) {
+    for (int y = 0; y < HEIGHT; y++) {
+      for (int x = 0; x < WIDTH; x++) {
 
             a = Vector_sV(x, y);
             // WHY minus?
@@ -492,7 +495,7 @@ void Interpolate_sV::bezierFlow(const GstVideoFrame *prev, const GstVideoFrame *
         }
     }
 
-    gst_buffer_unmap(output->buffer, &info);
+    gst_buffer_unmap(output, &info);
 
     /*
     for (int y = 0; y < prev.height(); y++) {

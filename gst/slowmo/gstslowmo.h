@@ -44,12 +44,14 @@ typedef struct _GstSlowmoClass GstSlowmoClass;
  * Opaque object data structure.
  */
 struct _GstSlowmo {
-  GstVideoFilter element;
+  GstBaseTransform element;
+
+  GstBuffer *prevbuf;
 };
 
 struct _GstSlowmoClass
 {
-  GstVideoFilterClass parent_class;
+  GstBaseTransformClass parent_class;
 };
 
 G_END_DECLS

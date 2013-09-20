@@ -27,7 +27,7 @@ libgstslowmo_la_LIBADD = \
 libgstslowmo_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
 libgstslowmo_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
-noinst_HEADERS = gstslowmo.h
+noinst_HEADERS = bezierTools_sV.h  flowField_sV.h  flowTools_sV.h  gstslowmo.h  interpolate_sV.h  interpolator_sV.h  kernel_sV.h  QPoint_crack.h  sourceField_sV.h  vector_sV.h
 
 Android.mk: Makefile.am $(BUILT_SOURCES)
 	androgenizer \

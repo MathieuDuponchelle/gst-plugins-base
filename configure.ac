@@ -832,6 +832,7 @@ gst/audiorate/Makefile
 gst/audiotestsrc/Makefile
 gst/encoding/Makefile
 gst/videoconvert/Makefile
+gst/slowmo/Makefile
 gst/gio/Makefile
 gst/playback/Makefile
 gst/audioresample/Makefile

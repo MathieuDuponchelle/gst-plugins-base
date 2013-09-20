@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "interpolator_sV.h"
+//#include "interpolator_sV.h"
 #include "flowField_sV.h"
 #include "interpolate_sV.h"
 #include "math.h"
@@ -8,7 +8,11 @@
 
 #define MIN_FRAME_DIST .001
 
-gboolean Interpolator_sV::interpolate(GstVideoFrame *left_frame, GstVideoFrame *right_frame)
+enum InterpolationType { InterpolationType_Forward = 0, InterpolationType_ForwardNew = 1,
+                         InterpolationType_Twoway = 10, InterpolationType_TwowayNew = 11,
+                         InterpolationType_Bezier = 20 };
+
+static gboolean cpp_interpolate(GstBuffer *left, GstBuffer *right)
 {
   InterpolationType interpolation = InterpolationType_Twoway;
 
@@ -19,9 +23,7 @@ gboolean Interpolator_sV::interpolate(GstVideoFrame *left_frame, GstVideoFrame *
 
         // GstVideoFrame *left = pr->frameSource()->frameAt(floor(frame), size);
         // GstVideoFrame *right = pr->frameSource()->frameAt(floor(frame)+1, size);
-      GstVideoFrame *left = NULL;
-      GstVideoFrame *right = NULL;
-      GstVideoFrame *out = NULL;
+      GstBuffer *out = NULL;
 
         /// Position between two frames, on [0 1]
         const float pos = 0.5;
@@ -114,7 +116,11 @@ gboolean Interpolator_sV::interpolate(GstVideoFrame *left_frame, GstVideoFrame *
     }
 }
 
-int main()
-{
-  return 0;
+extern "C" {
+  gboolean interpolate(GstBuffer *leftFrame, GstBuffer *rightFrame);
+
+  gboolean interpolate(GstBuffer *leftFrame, GstBuffer *rightFrame)
+  {
+    return cpp_interpolate(leftFrame, rightFrame);
+  }
 }

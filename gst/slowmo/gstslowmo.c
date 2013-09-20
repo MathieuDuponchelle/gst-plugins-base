@@ -30,6 +30,7 @@
 #endif
 
 #include "gstslowmo.h"
+#include "interpolator_sV.h"
 
 #include <gst/video/video.h>
 #include <gst/video/gstvideometa.h>
@@ -44,7 +45,7 @@ GST_DEBUG_CATEGORY_EXTERN (GST_CAT_PERFORMANCE);
 GType gst_slowmo_get_type (void);
 
 #define gst_slowmo_parent_class parent_class
-G_DEFINE_TYPE (GstSlowmo, gst_slowmo, GST_TYPE_VIDEO_FILTER);
+G_DEFINE_TYPE (GstSlowmo, gst_slowmo, GST_TYPE_BASE_TRANSFORM);
 
 enum
 {
@@ -73,15 +74,16 @@ static void gst_slowmo_set_property (GObject * object,
 static void gst_slowmo_get_property (GObject * object,
     guint property_id, GValue * value, GParamSpec * pspec);
 
-static GstFlowReturn gst_slowmo_transform_frame (GstVideoFilter * filter,
-    GstVideoFrame * in_frame, GstVideoFrame * out_frame);
+static GstFlowReturn gst_slowmo_transform_ip (GstBaseTransform * trans,
+    GstBuffer * buffer);
 
 static void
 gst_slowmo_class_init (GstSlowmoClass * klass)
 {
   GObjectClass *gobject_class = (GObjectClass *) klass;
   GstElementClass *gstelement_class = (GstElementClass *) klass;
-  GstVideoFilterClass *gstvideofilter_class = (GstVideoFilterClass *) klass;
+  GstBaseTransformClass *gstbasetransform_class =
+      (GstBaseTransformClass *) klass;
 
   gobject_class->set_property = gst_slowmo_set_property;
   gobject_class->get_property = gst_slowmo_get_property;
@@ -96,13 +98,14 @@ gst_slowmo_class_init (GstSlowmoClass * klass)
       "Slow stuff down. Don't try to slow stuff up it doesn't make sense",
       "GStreamer maintainers <gstreamer-devel@lists.sourceforge.net>");
 
-  gstvideofilter_class->transform_frame =
-      GST_DEBUG_FUNCPTR (gst_slowmo_transform_frame);
+  gstbasetransform_class->transform_ip =
+      GST_DEBUG_FUNCPTR (gst_slowmo_transform_ip);
 }
 
 static void
-gst_slowmo_init (GstSlowmo * space)
+gst_slowmo_init (GstSlowmo * slowmo)
 {
+  slowmo->prevbuf = NULL;
 }
 
 void
@@ -140,23 +143,29 @@ gst_slowmo_get_property (GObject * object, guint property_id,
 }
 
 static GstFlowReturn
-gst_slowmo_transform_frame (GstVideoFilter * filter,
-    GstVideoFrame * in_frame, GstVideoFrame * out_frame)
+gst_slowmo_transform_ip (GstBaseTransform * trans, GstBuffer * buffer)
 {
   GstSlowmo *slowmo;
+  GstFlowReturn ret = GST_FLOW_OK;
 
-  slowmo = GST_SLOWMO_CAST (filter);
+  slowmo = GST_SLOWMO_CAST (trans);
 
-  (void) slowmo;
+  if (slowmo->prevbuf) {
+    GST_DEBUG_OBJECT (slowmo,
+        "pushing buffer with timestamp : %" GST_TIME_FORMAT,
+        GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (slowmo->prevbuf)));
 
-  GST_CAT_DEBUG_OBJECT (GST_CAT_PERFORMANCE, filter,
-      "doing colorspace conversion from %s -> to %s",
-      GST_VIDEO_INFO_NAME (&filter->in_info),
-      GST_VIDEO_INFO_NAME (&filter->out_info));
+    interpolate (slowmo->prevbuf, buffer);
 
-  gst_video_frame_copy (out_frame, in_frame);
+    ret = gst_pad_push (GST_BASE_TRANSFORM_SRC_PAD (slowmo), slowmo->prevbuf);
+  }
 
-  return GST_FLOW_OK;
+  slowmo->prevbuf = gst_buffer_ref (buffer);
+
+  GST_DEBUG_OBJECT (slowmo, "storing buffer with timestamp : %" GST_TIME_FORMAT,
+      GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (slowmo->prevbuf)));
+
+  return ret;
 }
 
 static gboolean
