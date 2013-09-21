@@ -245,28 +245,16 @@ gst_slowmo_transform_ip (GstBaseTransform * trans, GstBuffer * buffer)
 {
   GstSlowmo *slowmo;
   GstFlowReturn ret = GST_BASE_TRANSFORM_FLOW_DROPPED;
-  GstVideoRateMeta *meta;
-
-  meta =
-      (GstVideoRateMeta *) gst_buffer_get_meta (buffer,
-      gst_video_rate_meta_api_get_type ());
-
-  if (!meta) {
-    GST_ERROR ("We need videorate metadata to operate");
-    return GST_FLOW_ERROR;
-  }
 
   GST_DEBUG_OBJECT (trans,
       "Received buffer %p with timestamp : %" GST_TIME_FORMAT, buffer,
       GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (buffer)));
 
-  GST_DEBUG_OBJECT (trans, "buffer has meta %p, original is : %d", meta,
-      meta->original);
-
   slowmo = GST_SLOWMO_CAST (trans);
 
-  if (!meta->original) {
+  if (GST_BUFFER_FLAG_IS_SET (buffer, GST_BUFFER_FLAG_GAP)) {
     PendingFrame *pending = g_malloc (sizeof (PendingFrame));
+
     pending->timestamp = GST_BUFFER_TIMESTAMP (buffer);
     slowmo->pending_frames = g_list_append (slowmo->pending_frames, pending);
     return ret;
