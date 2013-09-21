@@ -23,8 +23,7 @@
 #define __GST_SLOWMO_H__
 
 #include <gst/gst.h>
-#include <gst/video/video.h>
-#include <gst/video/gstvideofilter.h>
+#include <gst/base/gstbasetransform.h>
 
 G_BEGIN_DECLS
 
@@ -48,7 +47,14 @@ struct _GstSlowmo {
 
   GList *pending_frames;
   GstBuffer *prevbuf;
-  int dummy;
+
+  gint width;
+  gint height;
+
+  void *forwardFlow;
+  void *backwardFlow;
+
+  void *m_flowSource;
 };
 
 struct _GstSlowmoClass

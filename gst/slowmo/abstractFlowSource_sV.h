@@ -12,6 +12,7 @@ the Free Software Foundation, either version 3 of the License, or
 #define ABSTRACTFLOWSOURCE_SV_H
 
 #include <gst/gst.h>
+#include "gstslowmo.h"
 #include "QPoint_crack.h"
 #include <iostream>
 
@@ -25,7 +26,7 @@ public:
     virtual ~AbstractFlowSource_sV() {}
 
     /** \return The flow field from \c leftFrame to \c rightFrame */
-    virtual FlowField_sV* buildFlow(GstBuffer *left, GstBuffer *right) = 0;
+    virtual FlowField_sV* buildFlow(GstSlowmo *slowmo, GstBuffer *left, GstBuffer *right) = 0;
 };
 
 #endif // ABSTRACTFLOWSOURCE_SV_H

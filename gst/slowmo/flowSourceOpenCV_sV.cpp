@@ -73,7 +73,7 @@ static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
   std::cout << max_flow << " max flow" << std::endl;
 }
 
-FlowField_sV* FlowSourceOpenCV_sV::buildFlow(GstBuffer *leftFrame, GstBuffer *rightFrame)
+FlowField_sV* FlowSourceOpenCV_sV::buildFlow(GstSlowmo *slowmo, GstBuffer *leftFrame, GstBuffer *rightFrame)
 {
   Mat flow, cflow, prevgray, gray;
   GstMapInfo left_info, right_info;
@@ -83,12 +83,12 @@ FlowField_sV* FlowSourceOpenCV_sV::buildFlow(GstBuffer *leftFrame, GstBuffer *ri
 
   gettimeofday(&t1, NULL);
 
-  field = new FlowField_sV(1280, 720);
+  field = new FlowField_sV(slowmo->width, slowmo->height);
 
   gst_buffer_map(leftFrame, &left_info, GST_MAP_READ);
   gst_buffer_map(rightFrame, &right_info, GST_MAP_READ);
-  Mat left(Size(1280, 720), CV_8UC3, left_info.data, Mat::AUTO_STEP);
-  Mat right(Size(1280, 720), CV_8UC3, right_info.data, Mat::AUTO_STEP);
+  Mat left(Size(slowmo->width, slowmo->height), CV_8UC3, left_info.data, Mat::AUTO_STEP);
+  Mat right(Size(slowmo->width, slowmo->height), CV_8UC3, right_info.data, Mat::AUTO_STEP);
   cvtColor(left, prevgray, CV_RGB2GRAY);
   cvtColor(right, gray, CV_RGB2GRAY);
 

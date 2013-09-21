@@ -50,12 +50,12 @@ class Interpolate_sV {
       \c x should fulfil \f$ 0 \leq x < width-1 \f$, same with y, to avoid reading outside the image.
       Not tested inside the function for efficiency reasons.
       */
-    static void forwardFlow(GstBuffer *left, const FlowField_sV *flow, float pos, GstBuffer * output);
-    static void newForwardFlow(GstBuffer * left, const FlowField_sV *flow, float pos, GstBuffer * output);
-    static void twowayFlow(GstBuffer * left, GstBuffer * right, const FlowField_sV *flowForward, const FlowField_sV *flowBackward, float pos, GstBuffer * output);
-    static void newTwowayFlow(GstBuffer * left, GstBuffer * right, const FlowField_sV *flowLeftRight, const FlowField_sV *flowRightLeft, float pos, GstBuffer * output);
-    static void bezierFlow(GstBuffer * left, GstBuffer * right, const FlowField_sV *flowCurrPrev, const FlowField_sV *flowCurrNext, float pos, GstBuffer *output);
-    static void interpolate(GstBuffer * in, float x, float y, QColor *out);
+  static void forwardFlow(GstSlowmo *slowmo, GstBuffer *left, const FlowField_sV *flow, float pos, GstBuffer * output);
+  static void newForwardFlow(GstSlowmo *slowmo, GstBuffer * left, const FlowField_sV *flow, float pos, GstBuffer * output);
+  static void twowayFlow(GstSlowmo *slowmo, GstBuffer * left, GstBuffer * right, const FlowField_sV *flowForward, const FlowField_sV *flowBackward, float pos, GstBuffer * output);
+  static void newTwowayFlow(GstSlowmo *slowmo, GstBuffer * left, GstBuffer * right, const FlowField_sV *flowLeftRight, const FlowField_sV *flowRightLeft, float pos, GstBuffer * output);
+  static void bezierFlow(GstSlowmo *slowmo, GstBuffer * left, GstBuffer * right, const FlowField_sV *flowCurrPrev, const FlowField_sV *flowCurrNext, float pos, GstBuffer *output);
+  static void interpolate(GstBuffer * in, float x, float y, QColor *out, gint width);
 
 private:
     struct Movement {

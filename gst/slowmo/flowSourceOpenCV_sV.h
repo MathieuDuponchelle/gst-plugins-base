@@ -23,7 +23,7 @@ public:
     FlowSourceOpenCV_sV();
     ~FlowSourceOpenCV_sV() {}
 
-    virtual FlowField_sV* buildFlow(GstBuffer *leftFrame, GstBuffer *rightFrame);
+    virtual FlowField_sV* buildFlow(GstSlowmo *slowmo, GstBuffer *leftFrame, GstBuffer *rightFrame);
 
 private:
     std::string m_dirFlowSmall;

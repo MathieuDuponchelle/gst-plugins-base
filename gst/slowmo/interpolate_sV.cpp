@@ -40,14 +40,12 @@ the Free Software Foundation, either version 3 of the License, or
 enum ColorComponent { CC_Red, CC_Green, CC_Blue };
 
 // FIXME : KILL ME PLEASE
-#define WIDTH 1280
-#define HEIGHT 720
 #define PIXEL_STRIDE 3
 
 static void
-get_pixel_at(guint8 *data, int x, int y, QColor *res)
+get_pixel_at(guint8 *data, int x, int y, QColor *res, gint width)
 {
-  int lstride = PIXEL_STRIDE * WIDTH;
+  int lstride = PIXEL_STRIDE * width;
 
   res->redF = data[lstride * y + x * PIXEL_STRIDE];
   res->greenF = data[lstride * y + x * PIXEL_STRIDE + 1];
@@ -83,7 +81,7 @@ float interpB(const QColor cols[2][2], float x, float y)
         + x*y * cols[1][1].blueF;
 }
 
-void Interpolate_sV::interpolate(GstBuffer *in, float x, float y, QColor *out)
+void Interpolate_sV::interpolate(GstBuffer *in, float x, float y, QColor *out, int width)
 {
   GstMapInfo info;
 
@@ -97,10 +95,10 @@ void Interpolate_sV::interpolate(GstBuffer *in, float x, float y, QColor *out)
     QColor carr[2][2];
     int floorX = floor(x);
     int floorY = floor(y);
-    get_pixel_at(info.data, floorX, floorY, &(carr[0][0]));
-    get_pixel_at(info.data, floorX, floorY+1, &(carr[0][1]));
-    get_pixel_at(info.data, floorX+1, floorY, &(carr[1][0]));
-    get_pixel_at(info.data, floorX+1, floorY+1, &(carr[1][1]));
+    get_pixel_at(info.data, floorX, floorY, &(carr[0][0]), width);
+    get_pixel_at(info.data, floorX, floorY+1, &(carr[0][1]), width);
+    get_pixel_at(info.data, floorX+1, floorY, &(carr[1][0]), width);
+    get_pixel_at(info.data, floorX+1, floorY+1, &(carr[1][1]), width);
 
     float dx = x - floorX;
     float dy = y - floorY;
@@ -151,9 +149,9 @@ void Interpolate_sV::blend(ColorMatrix4x4 &c, const QColor &blendCol, float posX
 }
 
 static void
-set_pixel_at(GstBuffer *frame, guint8 *data, int x, int y, float r, float g, float b)
+set_pixel_at(GstBuffer *frame, guint8 *data, int x, int y, float r, float g, float b, gint width)
 {
-  int lstride = PIXEL_STRIDE * WIDTH;
+  int lstride = PIXEL_STRIDE * width;
 
   //  GST_ERROR("rgb : %f %f %f", r, g, b);
 
@@ -164,11 +162,11 @@ set_pixel_at(GstBuffer *frame, guint8 *data, int x, int y, float r, float g, flo
   //  GST_ERROR("rgb : %d %d %d", (unsigned char) (r * 255), (unsigned char) (g * 255), (unsigned char) (b * 255));
 }
 
-void Interpolate_sV::twowayFlow(GstBuffer *left, GstBuffer *right, const FlowField_sV *flowForward, const FlowField_sV *flowBackward, float pos, GstBuffer *output)
+void Interpolate_sV::twowayFlow(GstSlowmo *slowmo, GstBuffer *left, GstBuffer *right, const FlowField_sV *flowForward, const FlowField_sV *flowBackward, float pos, GstBuffer *output)
 {
 #ifdef INTERPOLATE
-    const float Wmax = WIDTH - 1.0001; // A little less than the maximum pixel to avoid out of bounds when interpolating
-    const float Hmax = HEIGHT - 1.0001;
+    const float Wmax = slowmo->width - 1.0001; // A little less than the maximum pixel to avoid out of bounds when interpolating
+    const float Hmax = slowmo->height - 1.0001;
     float posX, posY;
 #endif
 
@@ -178,8 +176,8 @@ void Interpolate_sV::twowayFlow(GstBuffer *left, GstBuffer *right, const FlowFie
     Interpolate_sV::Movement forward, backward;
 
     gst_buffer_map(output, &info, GST_MAP_WRITE);
-    for (int y = 0; y < HEIGHT; y++) {
-      for (int x = 0; x < WIDTH; x++) {
+    for (int y = 0; y < slowmo->height; y++) {
+      for (int x = 0; x < slowmo->width; x++) {
             forward.moveX = flowForward->x(x, y);
             forward.moveY = flowForward->y(x, y);
 
@@ -191,13 +189,13 @@ void Interpolate_sV::twowayFlow(GstBuffer *left, GstBuffer *right, const FlowFie
             posY = y - pos*forward.moveY;
             posX = CLAMP(posX, 0, Wmax);
             posY = CLAMP(posY, 0, Hmax);
-            interpolate(left, posX, posY, &colLeft);
+            interpolate(left, posX, posY, &colLeft, slowmo->width);
 
             posX = x - (1-pos)*backward.moveX;
             posY = y - (1-pos)*backward.moveY;
             posX = CLAMP(posX, 0, Wmax);
             posY = CLAMP(posY, 0, Hmax);
-            interpolate(right, posX, posY, &colRight);
+            interpolate(right, posX, posY, &colRight, slowmo->width);
 #else
             colLeft = QColor(left.pixel(x - pos*forward.moveX, y - pos*forward.moveY));
             colRight = QColor(right.pixel(x - (1-pos)*backward.moveX , y - (1-pos)*backward.moveY));
@@ -208,19 +206,19 @@ void Interpolate_sV::twowayFlow(GstBuffer *left, GstBuffer *right, const FlowFie
 
 	    //	    GST_ERROR("rgb : %f %f %f", r, g, b);
 
-	    set_pixel_at(output, info.data, x, y, CLAMP(r, 0, 255), CLAMP(g, 0, 255), CLAMP(b, 0, 255));
+	    set_pixel_at(output, info.data, x, y, CLAMP(r, 0, 255), CLAMP(g, 0, 255), CLAMP(b, 0, 255), slowmo->width);
         }
     }
     gst_buffer_unmap(output, &info);
 }
 
 
-void Interpolate_sV::newTwowayFlow(GstBuffer *left, GstBuffer *right,
+void Interpolate_sV::newTwowayFlow(GstSlowmo *slowmo, GstBuffer *left, GstBuffer *right,
                                    const FlowField_sV *flowLeftRight, const FlowField_sV *flowRightLeft,
                                    float pos, GstBuffer *output)
 {
-    const int W = WIDTH;
-    const int H = HEIGHT;
+    const int W = slowmo->width;
+    const int H = slowmo->height;
 
 
     SourceField_sV leftSourcePixel(flowLeftRight, pos);
@@ -256,14 +254,14 @@ void Interpolate_sV::newTwowayFlow(GstBuffer *left, GstBuffer *right,
             fy = leftSourcePixel.at(x,y).fromY;
             if (fx >= 0 && fx < W-1
                     && fy >= 0 && fy < H-1) {
-	      interpolate(left, fx, fy, &colLeft);
+	      interpolate(left, fx, fy, &colLeft, slowmo->width);
                 leftOk = true;
             } else {
                 fx = leftSourcePixel.at(x,y).fromX;
                 fy = leftSourcePixel.at(x,y).fromY;
                 fx = CLAMP(fx, 0, W-1.01);
                 fy = CLAMP(fy, 0, H-1.01);
-                interpolate(left, fx, fy, &colLeft);
+                interpolate(left, fx, fy, &colLeft, slowmo->width);
                 leftOk = false;
             }
 
@@ -271,7 +269,7 @@ void Interpolate_sV::newTwowayFlow(GstBuffer *left, GstBuffer *right,
             fy = rightSourcePixel.at(x,y).fromY;
             if (fx >= 0 && fx < W-1
                     && fy >= 0 && fy < H-1) {
-	      interpolate(right, fx, fy, &colRight);
+	      interpolate(right, fx, fy, &colRight, slowmo->width);
                 rightOk = true;
             } else {
 		colRight.redF = 0;
@@ -283,22 +281,22 @@ void Interpolate_sV::newTwowayFlow(GstBuffer *left, GstBuffer *right,
             if (leftOk && rightOk) {
 	      QColor blended;
 	      blend(colLeft, colRight, aspect, &blended);
-		set_pixel_at(output, info.data, x, y, blended.redF, blended.greenF, blended.blueF);
+	      set_pixel_at(output, info.data, x, y, blended.redF, blended.greenF, blended.blueF, slowmo->width);
             } else if (rightOk) {
-	      set_pixel_at(output, info.data, x, y, colRight.redF, colRight.greenF, colRight.blueF);
+	      set_pixel_at(output, info.data, x, y, colRight.redF, colRight.greenF, colRight.blueF, slowmo->width);
 //                output.setPixel(x,y, qRgb(255, 0, 0));
             } else if (leftOk) {
-	      set_pixel_at(output, info.data, x, y, colLeft.redF, colLeft.greenF, colLeft.blueF);
+	      set_pixel_at(output, info.data, x, y, colLeft.redF, colLeft.greenF, colLeft.blueF, slowmo->width);
 //                output.setPixel(x,y, qRgb(0, 255, 0));
             } else {
-	      set_pixel_at(output, info.data, x, y, colLeft.redF, colLeft.greenF, colLeft.blueF);
+	      set_pixel_at(output, info.data, x, y, colLeft.redF, colLeft.greenF, colLeft.blueF, slowmo->width);
             }
 #else
             fx = leftSourcePixel.at(x,y).fromX;
             fy = leftSourcePixel.at(x,y).fromY;
             fx = CLAMP(fx, 0, W-1.01);
             fy = CLAMP(fy, 0, H-1.01);
-            interpolate(left, fx, fy, &colLeft);
+            interpolate(left, fx, fy, &colLeft, slowmo->width);
 
 #ifdef FIX_FLOW
             diffSum = diffField.x(fx, fy)+diffField.y(fx, fy);
@@ -315,7 +313,7 @@ void Interpolate_sV::newTwowayFlow(GstBuffer *left, GstBuffer *right,
             fy = rightSourcePixel.at(x,y).fromY;
             fx = CLAMP(fx, 0, W-1.01);
             fy = CLAMP(fy, 0, H-1.01);
-            interpolate(right, fx, fy, &colRight);
+            interpolate(right, fx, fy, &colRight, slowmo->width);
 
 #ifdef FIX_FLOW
             diffSum = diffField.x(fx, fy)+diffField.y(fx, fy);
@@ -342,13 +340,13 @@ void Interpolate_sV::newTwowayFlow(GstBuffer *left, GstBuffer *right,
     gst_buffer_unmap(output, &info);
 }
 
-void Interpolate_sV::forwardFlow(GstBuffer *left, const FlowField_sV *flow, float pos, GstBuffer *output)
+void Interpolate_sV::forwardFlow(GstSlowmo *slowmo, GstBuffer *left, const FlowField_sV *flow, float pos, GstBuffer *output)
 {
   //    qDebug() << "Interpolating flow at offset " << pos;
 #ifdef INTERPOLATE
     float posX, posY;
-    const float Wmax = WIDTH-1.0001;
-    const float Hmax = HEIGHT-1.0001;
+    const float Wmax = slowmo->width - 1.0001;
+    const float Hmax = slowmo->height - 1.0001;
 #endif
 
     QColor colOut;
@@ -357,8 +355,8 @@ void Interpolate_sV::forwardFlow(GstBuffer *left, const FlowField_sV *flow, floa
 
     gst_buffer_map(output, &info, GST_MAP_WRITE);
 
-    for (int y = 0; y < HEIGHT; y++) {
-      for (int x = 0; x < WIDTH; x++) {
+    for (int y = 0; y < slowmo->height; y++) {
+      for (int x = 0; x < slowmo->width; x++) {
             // Forward flow from the left to the right image tells for each pixel in the right image
             // from which location in the left image the pixel has come from.
             forward.moveX = flow->x(x, y);
@@ -369,20 +367,20 @@ void Interpolate_sV::forwardFlow(GstBuffer *left, const FlowField_sV *flow, floa
             posY = y - pos*forward.moveY;
 	    posX = CLAMP(posX, 0, Wmax);
 	    posY = CLAMP(posY, 0, Hmax);
-	    interpolate(left, posX, posY, &colOut);
+	    interpolate(left, posX, posY, &colOut, slowmo->width);
 #else
             colOut = QColor(left.pixel(x - pos*forward.moveX, y - pos*forward.moveY));
 #endif
-	    set_pixel_at(output, info.data, x, y, colOut.redF, colOut.greenF, colOut.blueF);
+	    set_pixel_at(output, info.data, x, y, colOut.redF, colOut.greenF, colOut.blueF, slowmo->width);
 	}
     }
     gst_buffer_unmap(output, &info);
 }
 
-void Interpolate_sV::newForwardFlow(GstBuffer *left, const FlowField_sV *flow, float pos, GstBuffer *output)
+void Interpolate_sV::newForwardFlow(GstSlowmo *slowmo, GstBuffer *left, const FlowField_sV *flow, float pos, GstBuffer *output)
 {
-    const int W = WIDTH;
-    const int H = HEIGHT;
+    const int W = slowmo->width;
+    const int H = slowmo->height;
     GstMapInfo info;
 
     // Calculate the source flow field
@@ -403,8 +401,8 @@ void Interpolate_sV::newForwardFlow(GstBuffer *left, const FlowField_sV *flow, f
             fx = CLAMP(fx, 0, W-1.01);
             fy = field.at(x,y).fromY;
             fy = CLAMP(fy, 0, H-1.01);
-	    interpolate(left, fx, fy, &colLeft);
-	    set_pixel_at(output, info.data, x, y, colLeft.redF, colLeft.greenF, colLeft.blueF);
+	    interpolate(left, fx, fy, &colLeft, slowmo->width);
+	    set_pixel_at(output, info.data, x, y, colLeft.redF, colLeft.greenF, colLeft.blueF, slowmo->width);
         }
     }
     gst_buffer_unmap(output, &info);
@@ -424,10 +422,10 @@ void Interpolate_sV::newForwardFlow(GstBuffer *left, const FlowField_sV *flow, f
      B next (can be NULL)
   \endcode
   */
-void Interpolate_sV::bezierFlow(GstBuffer *prev, GstBuffer *right, const FlowField_sV *flowPrevCurr, const FlowField_sV *flowCurrNext, float pos, GstBuffer *output)
+void Interpolate_sV::bezierFlow(GstSlowmo *slowmo, GstBuffer *prev, GstBuffer *right, const FlowField_sV *flowPrevCurr, const FlowField_sV *flowCurrNext, float pos, GstBuffer *output)
 {
-    const float Wmax = WIDTH - 1.0001;
-    const float Hmax = HEIGHT - 1.0001;
+    const float Wmax = slowmo->width - 1.0001;
+    const float Hmax = slowmo->height - 1.0001;
 
     Vector_sV a, b, c, tmpA, tmpB, tmpC, tmpD;
     Vector_sV Ta, Sa;
@@ -439,8 +437,8 @@ void Interpolate_sV::bezierFlow(GstBuffer *prev, GstBuffer *right, const FlowFie
 
     gst_buffer_map(output, &info, GST_MAP_WRITE);
 
-    for (int y = 0; y < HEIGHT; y++) {
-      for (int x = 0; x < WIDTH; x++) {
+    for (int y = 0; y < slowmo->height; y++) {
+      for (int x = 0; x < slowmo->width; x++) {
 
             a = Vector_sV(x, y);
             // WHY minus?
@@ -490,14 +488,14 @@ void Interpolate_sV::bezierFlow(GstBuffer *prev, GstBuffer *right, const FlowFie
             }
 #endif
 
-            interpolate(prev, position.x, position.y, &colOut);
+            interpolate(prev, position.x, position.y, &colOut, slowmo->width);
 
 #ifdef DEBUG_I
             if (y % 4 == 1 && x % 2 == 0) {
                 colOut = right.pixel(x, y);
             }
 #endif
-	    set_pixel_at(output, info.data, x, y, colOut.redF, colOut.greenF, colOut.blueF);
+	    set_pixel_at(output, info.data, x, y, colOut.redF, colOut.greenF, colOut.blueF, slowmo->width);
         }
     }
 
