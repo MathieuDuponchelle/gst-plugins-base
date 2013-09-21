@@ -46,7 +46,9 @@ typedef struct _GstSlowmoClass GstSlowmoClass;
 struct _GstSlowmo {
   GstBaseTransform element;
 
+  GList *pending_frames;
   GstBuffer *prevbuf;
+  int dummy;
 };
 
 struct _GstSlowmoClass

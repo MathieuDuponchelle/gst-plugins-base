@@ -40,8 +40,8 @@ the Free Software Foundation, either version 3 of the License, or
 enum ColorComponent { CC_Red, CC_Green, CC_Blue };
 
 // FIXME : KILL ME PLEASE
-#define WIDTH 320
-#define HEIGHT 240
+#define WIDTH 1280
+#define HEIGHT 720
 #define PIXEL_STRIDE 3
 
 static void
@@ -155,9 +155,13 @@ set_pixel_at(GstBuffer *frame, guint8 *data, int x, int y, float r, float g, flo
 {
   int lstride = PIXEL_STRIDE * WIDTH;
 
-  data[lstride * y + x * PIXEL_STRIDE] = r;
-  data[lstride * y + x * PIXEL_STRIDE + 1] = g;
-  data[lstride * y + x * PIXEL_STRIDE + 2] = b;
+  //  GST_ERROR("rgb : %f %f %f", r, g, b);
+
+  data[lstride * y + x * PIXEL_STRIDE] = (unsigned char) r;
+  data[lstride * y + x * PIXEL_STRIDE + 1] = (unsigned char) g;
+  data[lstride * y + x * PIXEL_STRIDE + 2] = (unsigned char) b;
+
+  //  GST_ERROR("rgb : %d %d %d", (unsigned char) (r * 255), (unsigned char) (g * 255), (unsigned char) (b * 255));
 }
 
 void Interpolate_sV::twowayFlow(GstBuffer *left, GstBuffer *right, const FlowField_sV *flowForward, const FlowField_sV *flowBackward, float pos, GstBuffer *output)
@@ -202,7 +206,9 @@ void Interpolate_sV::twowayFlow(GstBuffer *left, GstBuffer *right, const FlowFie
             g = (1-pos)*colLeft.greenF + pos*colRight.greenF;
             b = (1-pos)*colLeft.blueF + pos*colRight.blueF;
 
-	    set_pixel_at(output, info.data, x, y, CLAMP1(r), CLAMP1(g), CLAMP1(b));
+	    //	    GST_ERROR("rgb : %f %f %f", r, g, b);
+
+	    set_pixel_at(output, info.data, x, y, CLAMP(r, 0, 255), CLAMP(g, 0, 255), CLAMP(b, 0, 255));
         }
     }
     gst_buffer_unmap(output, &info);

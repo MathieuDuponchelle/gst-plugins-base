@@ -15,7 +15,8 @@ libgstslowmo_la_SOURCES =	gstslowmo.c \
 libgstslowmo_la_CFLAGS = \
 	$(GST_PLUGINS_BASE_CFLAGS) \
 	$(GST_CFLAGS) \
-	-Wno-aggregate-return
+	-Wno-aggregate-return \
+	-I /home/meh/devel/pitivi-git/gst-plugins-base/gst/videorate
 
 libgstslowmo_la_CXXFLAGS = \
 	$(GST_PLUGINS_BASE_CFLAGS) \
@@ -28,7 +29,7 @@ libgstslowmo_la_LIBADD = \
 	$(GST_LIBS) \
 	$(LIBM)
 
-libgstslowmo_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
+libgstslowmo_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) `pkg-config opencv --cflags --libs`
 libgstslowmo_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
 noinst_HEADERS = bezierTools_sV.h  flowField_sV.h  flowTools_sV.h  gstslowmo.h  interpolate_sV.h  interpolator_sV.h  kernel_sV.h  QPoint_crack.h  sourceField_sV.h  vector_sV.h abstractFlowSource_sV.h flowSourceOpenCV_sV.h

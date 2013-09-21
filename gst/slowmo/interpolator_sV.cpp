@@ -14,120 +14,100 @@ enum InterpolationType { InterpolationType_Forward = 0, InterpolationType_Forwar
                          InterpolationType_Twoway = 10, InterpolationType_TwowayNew = 11,
                          InterpolationType_Bezier = 20 };
 
-static gboolean cpp_interpolate(GstBuffer *left, GstBuffer *right)
+static FlowField_sV *forwardFlow;
+static FlowField_sV *backwardFlow;
+
+static gboolean cpp_interpolate(GstBuffer *left, GstBuffer *right, GstBuffer *out, float pos, gboolean reuse_flows)
 {
   InterpolationType interpolation = InterpolationType_Twoway;
   static AbstractFlowSource_sV *m_flowSource = NULL;
   if (m_flowSource == NULL)
     m_flowSource = new FlowSourceOpenCV_sV ();
 
-    // if (frame > pr->frameSource()->framesCount()) {
-    //   return FALSE;
-    // }
-    if (TRUE) {
+  if (interpolation == InterpolationType_Twoway) {
+    if (!reuse_flows)
+      {
+	forwardFlow = m_flowSource->buildFlow(left, right);
+	backwardFlow = m_flowSource->buildFlow(right, left);
+      }
 
-        // GstVideoFrame *left = pr->frameSource()->frameAt(floor(frame), size);
-        // GstVideoFrame *right = pr->frameSource()->frameAt(floor(frame)+1, size);
-      GstBuffer *out = NULL;
+    g_assert(forwardFlow != NULL);
+    g_assert(backwardFlow != NULL);
 
-        /// Position between two frames, on [0 1]
-        const float pos = 0.5;
-
-        if (interpolation == InterpolationType_Twoway) {
-	  //            FlowField_sV *forwardFlow = m_flowSource->buildFlow;
-	  FlowField_sV *forwardFlow = m_flowSource->buildFlow(left, right);
-	  FlowField_sV *backwardFlow = NULL;
-	  //FlowField_sV *forwardFlow = NULL;
-	  // FlowField_sV *forwardFlow = pr->requestFlow(floor(frame), floor(frame)+1, size);
-	  // FlowField_sV *backwardFlow = pr->requestFlow(floor(frame)+1, floor(frame), size);
-
-            g_assert(forwardFlow != NULL);
-            g_assert(backwardFlow != NULL);
-
-            if (forwardFlow == NULL || backwardFlow == NULL) {
-	      std::cout << "No flow received!" << std::endl;
-                g_assert(false);
-            }
-
-            Interpolate_sV::twowayFlow(left, right, forwardFlow, backwardFlow, pos, out);
-            delete forwardFlow;
-            delete backwardFlow;
-
-        } else if (interpolation == InterpolationType_TwowayNew) {
-	  FlowField_sV *forwardFlow = NULL;
-	  FlowField_sV *backwardFlow = NULL;
-            // FlowField_sV *forwardFlow = pr->requestFlow(floor(frame), floor(frame)+1, size);
-            // FlowField_sV *backwardFlow = pr->requestFlow(floor(frame)+1, floor(frame), size);
-
-	  g_assert(forwardFlow != NULL);
-          g_assert (backwardFlow != NULL);
-
-            if (forwardFlow == NULL || backwardFlow == NULL) {
-	      std::cout << "No flow received!" << std::endl;
-	      g_assert(false);
-            }
-
-            Interpolate_sV::newTwowayFlow(left, right, forwardFlow, backwardFlow, pos, out);
-            delete forwardFlow;
-            delete backwardFlow;
-
-        } else if (interpolation == InterpolationType_Forward) {
-	  FlowField_sV *forwardFlow = NULL;
-            // FlowField_sV *forwardFlow = pr->requestFlow(floor(frame), floor(frame)+1, size);
-
-            g_assert(forwardFlow != NULL);
-
-            if (forwardFlow == NULL) {
-	      std::cout << "No flow received!" << std::endl;
-              g_assert(false);
-            }
-
-            Interpolate_sV::forwardFlow(left, forwardFlow, pos, out);
-            delete forwardFlow;
-
-        } else if (interpolation == InterpolationType_ForwardNew) {
-	  FlowField_sV *forwardFlow = NULL;
-            // FlowField_sV *forwardFlow = pr->requestFlow(floor(frame), floor(frame)+1, size);
-
-            g_assert(forwardFlow != NULL);
-
-            if (forwardFlow == NULL) {
-	      std::cout << "No flow received!" << std::endl;
-	      g_assert(false);
-            }
-
-            Interpolate_sV::newForwardFlow(left, forwardFlow, pos, out);
-            delete forwardFlow;
-
-        } else if (interpolation == InterpolationType_Bezier) {
-	  FlowField_sV *currNext = NULL;
-	  FlowField_sV *currPrev = NULL;
-            // FlowField_sV *currNext = pr->requestFlow(floor(frame)+2, floor(frame)+1, size); // Allowed to be NULL
-            // FlowField_sV *currPrev = pr->requestFlow(floor(frame)+0, floor(frame)+1, size);
-
-            g_assert(currPrev != NULL);
-
-            Interpolate_sV::bezierFlow(left, right, currPrev, currNext, pos, out);
-
-            delete currNext;
-            delete currPrev;
-
-        } else {
-	  std::cout << "Unsupported interpolation type!" << std::endl;
-          g_assert(false);
-        }
-        return TRUE;
-    } else {
-      std::cout << "No interpolation necessary." << std::endl;
-        return TRUE;
+    if (forwardFlow == NULL || backwardFlow == NULL) {
+      std::cout << "No flow received!" << std::endl;
+      g_assert(false);
     }
+
+    Interpolate_sV::twowayFlow(left, right, forwardFlow, backwardFlow, pos, out);
+    //    delete forwardFlow;
+    //delete backwardFlow;
+
+  } else if (interpolation == InterpolationType_TwowayNew) {
+    forwardFlow = NULL;
+    backwardFlow = NULL;
+
+    g_assert(forwardFlow != NULL);
+    g_assert (backwardFlow != NULL);
+
+    if (forwardFlow == NULL || backwardFlow == NULL) {
+      std::cout << "No flow received!" << std::endl;
+      g_assert(false);
+    }
+
+    Interpolate_sV::newTwowayFlow(left, right, forwardFlow, backwardFlow, pos, out);
+    delete forwardFlow;
+    delete backwardFlow;
+
+  } else if (interpolation == InterpolationType_Forward) {
+    forwardFlow = NULL;
+
+    g_assert(forwardFlow != NULL);
+
+    if (forwardFlow == NULL) {
+      std::cout << "No flow received!" << std::endl;
+      g_assert(false);
+    }
+
+    Interpolate_sV::forwardFlow(left, forwardFlow, pos, out);
+    delete forwardFlow;
+
+  } else if (interpolation == InterpolationType_ForwardNew) {
+    forwardFlow = NULL;
+
+    g_assert(forwardFlow != NULL);
+
+    if (forwardFlow == NULL) {
+      std::cout << "No flow received!" << std::endl;
+      g_assert(false);
+    }
+
+    Interpolate_sV::newForwardFlow(left, forwardFlow, pos, out);
+    delete forwardFlow;
+
+  } else if (interpolation == InterpolationType_Bezier) {
+    FlowField_sV *currNext = NULL;
+    FlowField_sV *currPrev = NULL;
+
+    g_assert(currPrev != NULL);
+
+    Interpolate_sV::bezierFlow(left, right, currPrev, currNext, pos, out);
+
+    delete currNext;
+    delete currPrev;
+
+  } else {
+    std::cout << "Unsupported interpolation type!" << std::endl;
+    g_assert(false);
+  }
+  return TRUE;
 }
 
 extern "C" {
-  gboolean interpolate(GstBuffer *leftFrame, GstBuffer *rightFrame);
+  gboolean interpolate(GstBuffer *leftFrame, GstBuffer *rightFrame, GstBuffer *out, float pos, gboolean reuse_flows);
 
-  gboolean interpolate(GstBuffer *leftFrame, GstBuffer *rightFrame)
+  gboolean interpolate(GstBuffer *leftFrame, GstBuffer *rightFrame, GstBuffer *out, float pos, gboolean reuse_flows)
   {
-    return cpp_interpolate(leftFrame, rightFrame);
+    return cpp_interpolate(leftFrame, rightFrame, out, pos, reuse_flows);
   }
 }

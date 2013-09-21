@@ -16,7 +16,11 @@ the Free Software Foundation, either version 3 of the License, or
 #include "opencv2/highgui/highgui.hpp"
 #include <iostream>
 #include <fstream>
+
+#include <sys/time.h>
+
 using namespace cv;
+using namespace std;
 
 FlowSourceOpenCV_sV::FlowSourceOpenCV_sV()
 {
@@ -73,12 +77,18 @@ FlowField_sV* FlowSourceOpenCV_sV::buildFlow(GstBuffer *leftFrame, GstBuffer *ri
 {
   Mat flow, cflow, prevgray, gray;
   GstMapInfo left_info, right_info;
-  FlowField_sV *field = new FlowField_sV(320, 240);
+  timeval t1, t2;
+  double elapsedTime;
+  FlowField_sV *field;
+
+  gettimeofday(&t1, NULL);
+
+  field = new FlowField_sV(1280, 720);
 
   gst_buffer_map(leftFrame, &left_info, GST_MAP_READ);
   gst_buffer_map(rightFrame, &right_info, GST_MAP_READ);
-  Mat left(Size(320, 240), CV_8UC3, left_info.data, Mat::AUTO_STEP);
-  Mat right(Size(320, 240), CV_8UC3, right_info.data, Mat::AUTO_STEP);
+  Mat left(Size(1280, 720), CV_8UC3, left_info.data, Mat::AUTO_STEP);
+  Mat right(Size(1280, 720), CV_8UC3, right_info.data, Mat::AUTO_STEP);
   cvtColor(left, prevgray, CV_RGB2GRAY);
   cvtColor(right, gray, CV_RGB2GRAY);
 
@@ -117,6 +127,13 @@ FlowField_sV* FlowSourceOpenCV_sV::buildFlow(GstBuffer *leftFrame, GstBuffer *ri
 	//imwrite(argv[4],cflow);
       }
   }
+
+  gettimeofday(&t2, NULL);
+
+  elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;
+  elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0;
+
+  GST_DEBUG("elapsed time for one frame in calculating flow : %lf milliseconds", elapsedTime);
 
   return field;
 }

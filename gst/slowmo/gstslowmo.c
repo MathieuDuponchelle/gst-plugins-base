@@ -29,14 +29,22 @@
 #  include "config.h"
 #endif
 
+#include <stdlib.h>
+#include <stdio.h>
 #include "gstslowmo.h"
 #include "interpolator_sV.h"
 
 #include <gst/video/video.h>
 #include <gst/video/gstvideometa.h>
 #include <gst/video/gstvideopool.h>
+#include "gstvideorate.h"
 
 #include <string.h>
+
+typedef struct
+{
+  GstClockTime timestamp;
+} PendingFrame;
 
 GST_DEBUG_CATEGORY (slowmo_debug);
 #define GST_CAT_DEFAULT slowmo_debug
@@ -106,6 +114,8 @@ static void
 gst_slowmo_init (GstSlowmo * slowmo)
 {
   slowmo->prevbuf = NULL;
+  slowmo->pending_frames = NULL;
+  slowmo->dummy = 0;
 }
 
 void
@@ -142,22 +152,132 @@ gst_slowmo_get_property (GObject * object, guint property_id,
   }
 }
 
+static void
+dumpToFile (GstBuffer * buffer, const char *fName, int count)
+{
+  int i = 0;
+  FILE *fpOut;
+  GstMapInfo info;
+
+  gst_buffer_map (buffer, &info, GST_MAP_READ);
+
+  if ((fpOut = fopen (fName, "wb")) == NULL) {
+    perror (fName);
+    exit (EXIT_FAILURE);
+  }
+
+  while (i < count) {
+    fputc (info.data[i], fpOut);
+    i += 1;
+  }
+  fclose (fpOut);
+
+  GST_ERROR ("dumped");
+}
+
+static GstFlowReturn
+interpolate_pending_frames (GstSlowmo * slowmo, GstBuffer * buffer)
+{
+  GList *tmp;
+  GstBuffer *outbuf;
+  gboolean ret = GST_FLOW_OK;
+  float step;
+  float pos = 0;
+  gchar *name = malloc (sizeof (char) * 20);
+  gboolean reuse = FALSE;
+
+  /* Don't divide by zero please */
+  if (!g_list_length (slowmo->pending_frames))
+    return GST_FLOW_OK;
+
+  step = 1.0 / (g_list_length (slowmo->pending_frames) + 1);
+
+  pos += step;
+
+  if (FALSE)
+    dumpToFile (slowmo->prevbuf, "cool.rgb", 1280 * 720 * 3);
+  GST_ERROR_OBJECT (slowmo,
+      "outputting one buffer with timestamp : %" GST_TIME_FORMAT,
+      GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (slowmo->prevbuf)));
+  ret =
+      gst_pad_push (GST_BASE_TRANSFORM_SRC_PAD (slowmo),
+      gst_buffer_ref (slowmo->prevbuf));
+
+  for (tmp = slowmo->pending_frames; tmp; tmp = tmp->next) {
+    outbuf = gst_buffer_new_allocate (NULL, 1280 * 720 * 3, NULL);
+
+    interpolate (slowmo->prevbuf, buffer, outbuf, pos, reuse);
+
+    GST_BUFFER_TIMESTAMP (outbuf) = ((PendingFrame *) tmp->data)->timestamp;
+
+    GST_ERROR_OBJECT (slowmo,
+        "outputting one buffer with timestamp : %" GST_TIME_FORMAT,
+        GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (outbuf)));
+
+    slowmo->dummy += 1;
+
+    sprintf (name, "dummy%d.rgb", slowmo->dummy);
+
+    if (FALSE)
+      dumpToFile (outbuf, name, 1280 * 720 * 3);
+
+    ret = gst_pad_push (GST_BASE_TRANSFORM_SRC_PAD (slowmo), outbuf);
+    if (ret != GST_FLOW_OK) {
+      GST_ERROR ("fuck what");
+      break;
+    }
+
+    reuse = TRUE;
+    GST_ERROR ("pos : %f", pos);
+    pos += step;
+  }
+
+  free (name);
+
+  g_list_free_full (slowmo->pending_frames, g_free);
+  slowmo->pending_frames = NULL;
+
+  return ret;
+}
+
 static GstFlowReturn
 gst_slowmo_transform_ip (GstBaseTransform * trans, GstBuffer * buffer)
 {
   GstSlowmo *slowmo;
-  GstFlowReturn ret = GST_FLOW_OK;
+  GstFlowReturn ret = GST_BASE_TRANSFORM_FLOW_DROPPED;
+  GstVideoRateMeta *meta;
+
+  meta =
+      (GstVideoRateMeta *) gst_buffer_get_meta (buffer,
+      gst_video_rate_meta_api_get_type ());
+
+  if (!meta) {
+    GST_ERROR ("We need videorate metadata to operate");
+    return GST_FLOW_ERROR;
+  }
+
+  GST_DEBUG_OBJECT (trans,
+      "Received buffer %p with timestamp : %" GST_TIME_FORMAT, buffer,
+      GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (buffer)));
+
+  GST_DEBUG_OBJECT (trans, "buffer has meta %p, original is : %d", meta,
+      meta->original);
 
   slowmo = GST_SLOWMO_CAST (trans);
+
+  if (!meta->original) {
+    PendingFrame *pending = g_malloc (sizeof (PendingFrame));
+    pending->timestamp = GST_BUFFER_TIMESTAMP (buffer);
+    slowmo->pending_frames = g_list_append (slowmo->pending_frames, pending);
+    return ret;
+  }
 
   if (slowmo->prevbuf) {
     GST_DEBUG_OBJECT (slowmo,
         "pushing buffer with timestamp : %" GST_TIME_FORMAT,
         GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (slowmo->prevbuf)));
 
-    interpolate (slowmo->prevbuf, buffer);
-
-    ret = gst_pad_push (GST_BASE_TRANSFORM_SRC_PAD (slowmo), slowmo->prevbuf);
+    interpolate_pending_frames (slowmo, buffer);
   }
 
   slowmo->prevbuf = gst_buffer_ref (buffer);

@@ -21,7 +21,7 @@ class FlowField_sV;
 class AbstractFlowSource_sV
 {
 public:
-    AbstractFlowSource_sV();
+  //    AbstractFlowSource_sV();
     virtual ~AbstractFlowSource_sV() {}
 
     /** \return The flow field from \c leftFrame to \c rightFrame */
