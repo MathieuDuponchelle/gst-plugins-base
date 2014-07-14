@@ -730,6 +730,7 @@ gst_adder_src_event (GstPad * pad, GstObject * parent, GstEvent * event)
       /* parse the seek parameters */
       gst_event_parse_seek (event, &rate, &seek_format, &flags, &start_type,
           &start, &stop_type, &stop);
+      adder->seqnum = gst_event_get_seqnum (event);
 
       if ((start_type != GST_SEEK_TYPE_NONE)
           && (start_type != GST_SEEK_TYPE_SET)) {
@@ -923,6 +924,16 @@ gst_adder_sink_event (GstCollectPads * pads, GstCollectData * pad,
     return res;
 }
 
+static gboolean
+gst_adder_send_event (GstElement * element, GstEvent * event)
+{
+  if (GST_EVENT_TYPE (event) == GST_EVENT_SEEK) {
+    GST_ADDER (element)->seqnum = gst_event_get_seqnum (event);
+  }
+
+  return GST_ELEMENT_CLASS (parent_class)->send_event (element, event);
+}
+
 static void
 gst_adder_class_init (GstAdderClass * klass)
 {
@@ -953,6 +964,7 @@ gst_adder_class_init (GstAdderClass * klass)
       GST_DEBUG_FUNCPTR (gst_adder_request_new_pad);
   gstelement_class->release_pad = GST_DEBUG_FUNCPTR (gst_adder_release_pad);
   gstelement_class->change_state = GST_DEBUG_FUNCPTR (gst_adder_change_state);
+  gstelement_class->send_event = GST_DEBUG_FUNCPTR (gst_adder_send_event);
 }
 
 static void
@@ -1213,6 +1225,7 @@ gst_adder_collected (GstCollectPads * pads, gpointer user_data)
     GstEvent *caps_event;
 
     caps_event = gst_event_new_caps (adder->current_caps);
+    gst_event_set_seqnum (caps_event, adder->seqnum);
     GST_INFO_OBJECT (adder->srcpad, "send pending caps event %" GST_PTR_FORMAT,
         caps_event);
     if (!gst_pad_push_event (adder->srcpad, caps_event)) {
@@ -1246,6 +1259,11 @@ gst_adder_collected (GstCollectPads * pads, gpointer user_data)
     GST_INFO_OBJECT (adder->srcpad, "sending pending new segment event %"
         GST_SEGMENT_FORMAT, &adder->segment);
     if (event) {
+      if (adder->seqnum == 0) {
+        /* We did not receive any seek */
+        adder->seqnum = gst_event_get_seqnum (event);
+      }
+
       if (!gst_pad_push_event (adder->srcpad, event)) {
         GST_WARNING_OBJECT (adder->srcpad, "Sending new segment event failed");
       }
@@ -1282,7 +1300,7 @@ gst_adder_collected (GstCollectPads * pads, gpointer user_data)
     inbuf = gst_collect_pads_take_buffer (pads, collect_data, outsize);
 
     if (!GST_COLLECT_PADS_STATE_IS_SET (collect_data,
-                    GST_COLLECT_PADS_STATE_EOS))
+            GST_COLLECT_PADS_STATE_EOS))
       is_eos = FALSE;
 
     /* NULL means EOS or an empty buffer so we still need to flush in
@@ -1568,8 +1586,13 @@ not_negotiated:
   }
 eos:
   {
+    GstEvent *eos_evt = gst_event_new_eos ();
+
+    g_assert (adder->seqnum);
+    gst_event_set_seqnum (eos_evt, adder->seqnum);
+
     GST_DEBUG_OBJECT (adder, "no data available, must be EOS");
-    gst_pad_push_event (adder->srcpad, gst_event_new_eos ());
+    gst_pad_push_event (adder->srcpad, eos_evt);
     return GST_FLOW_EOS;
   }
 }
@@ -1600,6 +1623,7 @@ gst_adder_change_state (GstElement * element, GstStateChange transition)
     case GST_STATE_CHANGE_PAUSED_TO_READY:
       /* need to unblock the collectpads before calling the
        * parent change_state so that streaming can finish */
+      adder->seqnum = 0;
       gst_collect_pads_stop (adder->collect);
       break;
     default:

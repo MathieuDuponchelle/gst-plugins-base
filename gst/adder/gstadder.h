@@ -77,6 +77,8 @@ struct _GstAdder {
   
   gboolean send_stream_start;
   gboolean send_caps;
+
+  gint seqnum;
 };
 
 struct _GstAdderClass {
