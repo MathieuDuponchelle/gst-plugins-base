@@ -302,6 +302,7 @@ gst_video_test_src_init (GstVideoTestSrc * src)
   src->foreground_color = DEFAULT_FOREGROUND_COLOR;
   src->background_color = DEFAULT_BACKGROUND_COLOR;
   src->horizontal_speed = DEFAULT_HORIZONTAL_SPEED;
+  src->pending_position = GST_CLOCK_TIME_NONE;
 
   /* we operate in time */
   gst_base_src_set_format (GST_BASE_SRC (src), GST_FORMAT_TIME);
@@ -743,6 +744,14 @@ gst_video_test_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps)
   GST_DEBUG_OBJECT (videotestsrc, "size %dx%d, %d/%d fps",
       info.width, info.height, info.fps_n, info.fps_d);
 
+  if (GST_CLOCK_TIME_IS_VALID (videotestsrc->pending_position) && info.fps_n) {
+    videotestsrc->n_frames = gst_util_uint64_scale (videotestsrc->pending_position,
+        info.fps_n, info.fps_d * GST_SECOND);
+    videotestsrc->running_time = gst_util_uint64_scale (videotestsrc->n_frames,
+        info.fps_d * GST_SECOND, info.fps_n);
+    videotestsrc->pending_position = GST_CLOCK_TIME_NONE;
+  }
+
   g_free (videotestsrc->tmpline);
   g_free (videotestsrc->tmpline2);
   g_free (videotestsrc->tmpline_u8);
@@ -866,8 +875,10 @@ gst_video_test_src_do_seek (GstBaseSrc * bsrc, GstSegment * segment)
     src->n_frames = gst_util_uint64_scale (position,
         src->info.fps_n, src->info.fps_d * GST_SECOND);
   } else {
+    src->pending_position = position;
     src->n_frames = 0;
   }
+
   src->accum_frames = 0;
   src->accum_rtime = 0;
   if (src->info.fps_n) {

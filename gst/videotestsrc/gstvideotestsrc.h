@@ -178,6 +178,8 @@ struct _GstVideoTestSrc {
   guint n_lines;
   gint offset;
   gpointer *lines;
+
+  GstClockTime pending_position;
 };
 
 struct _GstVideoTestSrcClass {
