@@ -2123,9 +2123,9 @@ gst_audio_decoder_sink_eventfunc (GstAudioDecoder * dec, GstEvent * event)
       GST_AUDIO_DECODER_STREAM_UNLOCK (dec);
 
       if (dec->priv->ctx.had_input_data && !dec->priv->ctx.had_output_data) {
-        GST_ELEMENT_ERROR (dec, STREAM, DECODE,
-            ("No valid frames decoded before end of stream"),
-            ("no valid frames found"));
+        //GST_ELEMENT_ERROR (dec, STREAM, DECODE,
+            //("No valid frames decoded before end of stream"),
+            //("no valid frames found"));
       }
 
       /* Forward EOS because no buffer or serialized event will come after
