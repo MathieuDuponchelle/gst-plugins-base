@@ -111,6 +111,7 @@ struct _GstRTPBaseAudioPayloadPrivate
   guint cached_ptime_multiple;
   guint cached_align;
 
+  /* Not implemented */
   gboolean buffer_list;
 };
 
@@ -228,16 +229,9 @@ static void
 gst_rtp_base_audio_payload_set_property (GObject * object,
     guint prop_id, const GValue * value, GParamSpec * pspec)
 {
-  GstRTPBaseAudioPayload *payload;
-
-  payload = GST_RTP_BASE_AUDIO_PAYLOAD (object);
-
   switch (prop_id) {
     case PROP_BUFFER_LIST:
-#if 0
-      payload->priv->buffer_list = g_value_get_boolean (value);
-#endif
-      payload->priv->buffer_list = FALSE;
+      GST_WARNING_OBJECT (object, "buffer-list property not implemented");
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -512,12 +506,11 @@ gst_rtp_base_audio_payload_push_buffer (GstRTPBaseAudioPayload *
     baseaudiopayload, GstBuffer * buffer, GstClockTime timestamp)
 {
   GstRTPBasePayload *basepayload;
-  GstRTPBaseAudioPayloadPrivate *priv;
   GstBuffer *outbuf;
   guint payload_len;
   GstFlowReturn ret;
+  CopyMetaData data;
 
-  priv = baseaudiopayload->priv;
   basepayload = GST_RTP_BASE_PAYLOAD (baseaudiopayload);
 
   payload_len = gst_buffer_get_size (buffer);
@@ -532,34 +525,14 @@ gst_rtp_base_audio_payload_push_buffer (GstRTPBaseAudioPayload *
   gst_rtp_base_audio_payload_set_meta (baseaudiopayload, outbuf, payload_len,
       timestamp);
 
-  if (priv->buffer_list) {
-    GstBufferList *list;
-    guint i, len;
+  /* copy payload */
+  data.pay = baseaudiopayload;
+  data.outbuf = outbuf;
+  gst_buffer_foreach_meta (buffer, foreach_metadata, &data);
+  outbuf = gst_buffer_append (outbuf, buffer);
 
-    list = gst_buffer_list_new ();
-    len = gst_buffer_list_length (list);
-
-    for (i = 0; i < len; i++) {
-      /* FIXME */
-      g_warning ("bufferlist not implemented");
-      gst_buffer_list_add (list, outbuf);
-      gst_buffer_list_add (list, buffer);
-    }
-
-    GST_DEBUG_OBJECT (baseaudiopayload, "Pushing list %p", list);
-    ret = gst_rtp_base_payload_push_list (basepayload, list);
-  } else {
-    CopyMetaData data;
-
-    /* copy payload */
-    data.pay = baseaudiopayload;
-    data.outbuf = outbuf;
-    gst_buffer_foreach_meta (buffer, foreach_metadata, &data);
-    outbuf = gst_buffer_append (outbuf, buffer);
-
-    GST_DEBUG_OBJECT (baseaudiopayload, "Pushing buffer %p", outbuf);
-    ret = gst_rtp_base_payload_push (basepayload, outbuf);
-  }
+  GST_DEBUG_OBJECT (baseaudiopayload, "Pushing buffer %p", outbuf);
+  ret = gst_rtp_base_payload_push (basepayload, outbuf);
 
   return ret;
 }
@@ -589,6 +562,8 @@ gst_rtp_base_audio_payload_flush (GstRTPBaseAudioPayload * baseaudiopayload,
   GstFlowReturn ret;
   GstAdapter *adapter;
   guint64 distance;
+  GstBuffer *paybuf;
+  CopyMetaData data;
 
   priv = baseaudiopayload->priv;
   adapter = priv->adapter;
@@ -620,36 +595,21 @@ gst_rtp_base_audio_payload_flush (GstRTPBaseAudioPayload * baseaudiopayload,
   GST_DEBUG_OBJECT (baseaudiopayload, "Pushing %d bytes ts %" GST_TIME_FORMAT,
       payload_len, GST_TIME_ARGS (timestamp));
 
-  if (priv->buffer_list && gst_adapter_available_fast (adapter) >= payload_len) {
-    GstBuffer *buffer;
-    /* we can quickly take a buffer out of the adapter without having to copy
-     * anything. */
-    buffer = gst_adapter_take_buffer (adapter, payload_len);
+  /* create buffer to hold the payload */
+  outbuf = gst_rtp_buffer_new_allocate (0, 0, 0);
 
-    ret =
-        gst_rtp_base_audio_payload_push_buffer (baseaudiopayload, buffer,
-        timestamp);
-  } else {
-    GstBuffer *paybuf;
-    CopyMetaData data;
+  paybuf = gst_adapter_take_buffer_fast (adapter, payload_len);
 
+  data.pay = baseaudiopayload;
+  data.outbuf = outbuf;
+  gst_buffer_foreach_meta (paybuf, foreach_metadata, &data);
+  outbuf = gst_buffer_append (outbuf, paybuf);
 
-    /* create buffer to hold the payload */
-    outbuf = gst_rtp_buffer_new_allocate (0, 0, 0);
+  /* set metadata */
+  gst_rtp_base_audio_payload_set_meta (baseaudiopayload, outbuf, payload_len,
+      timestamp);
 
-    paybuf = gst_adapter_take_buffer_fast (adapter, payload_len);
-
-    data.pay = baseaudiopayload;
-    data.outbuf = outbuf;
-    gst_buffer_foreach_meta (paybuf, foreach_metadata, &data);
-    outbuf = gst_buffer_append (outbuf, paybuf);
-
-    /* set metadata */
-    gst_rtp_base_audio_payload_set_meta (baseaudiopayload, outbuf, payload_len,
-        timestamp);
-
-    ret = gst_rtp_base_payload_push (basepayload, outbuf);
-  }
+  ret = gst_rtp_base_payload_push (basepayload, outbuf);
 
   return ret;
 }
