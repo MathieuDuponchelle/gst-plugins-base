@@ -425,52 +425,6 @@ gst_rtp_base_audio_payload_set_meta (GstRTPBaseAudioPayload * payload,
   priv->last_timestamp = timestamp;
 }
 
-/**
- * gst_rtp_base_audio_payload_push:
- * @baseaudiopayload: a #GstRTPBasePayload
- * @data: data to set as payload
- * @payload_len: length of payload
- * @timestamp: a #GstClockTime
- *
- * Create an RTP buffer and store @payload_len bytes of @data as the
- * payload. Set the timestamp on the new buffer to @timestamp before pushing
- * the buffer downstream.
- *
- * Returns: a #GstFlowReturn
- */
-GstFlowReturn
-gst_rtp_base_audio_payload_push (GstRTPBaseAudioPayload * baseaudiopayload,
-    const guint8 * data, guint payload_len, GstClockTime timestamp)
-{
-  GstRTPBasePayload *basepayload;
-  GstBuffer *outbuf;
-  guint8 *payload;
-  GstFlowReturn ret;
-  GstRTPBuffer rtp = { NULL };
-
-  basepayload = GST_RTP_BASE_PAYLOAD (baseaudiopayload);
-
-  GST_DEBUG_OBJECT (baseaudiopayload, "Pushing %d bytes ts %" GST_TIME_FORMAT,
-      payload_len, GST_TIME_ARGS (timestamp));
-
-  /* create buffer to hold the payload */
-  outbuf = gst_rtp_buffer_new_allocate (payload_len, 0, 0);
-
-  /* copy payload */
-  gst_rtp_buffer_map (outbuf, GST_MAP_WRITE, &rtp);
-  payload = gst_rtp_buffer_get_payload (&rtp);
-  memcpy (payload, data, payload_len);
-  gst_rtp_buffer_unmap (&rtp);
-
-  /* set metadata */
-  gst_rtp_base_audio_payload_set_meta (baseaudiopayload, outbuf, payload_len,
-      timestamp);
-
-  ret = gst_rtp_base_payload_push (basepayload, outbuf);
-
-  return ret;
-}
-
 typedef struct
 {
   GstRTPBaseAudioPayload *pay;
@@ -538,6 +492,38 @@ gst_rtp_base_audio_payload_push_buffer (GstRTPBaseAudioPayload *
 }
 
 /**
+ * gst_rtp_base_audio_payload_push:
+ * @baseaudiopayload: a #GstRTPBasePayload
+ * @data: data to set as payload
+ * @payload_len: length of payload
+ * @timestamp: a #GstClockTime
+ *
+ * Create an RTP buffer and store @payload_len bytes of @data as the
+ * payload. Set the timestamp on the new buffer to @timestamp before pushing
+ * the buffer downstream.
+ *
+ * Returns: a #GstFlowReturn
+ */
+GstFlowReturn
+gst_rtp_base_audio_payload_push (GstRTPBaseAudioPayload * baseaudiopayload,
+    const guint8 * data, guint payload_len, GstClockTime timestamp)
+{
+  GstBuffer *paybuf;
+  GstMapInfo map;
+
+  GST_DEBUG_OBJECT (baseaudiopayload, "Pushing %d bytes ts %" GST_TIME_FORMAT,
+      payload_len, GST_TIME_ARGS (timestamp));
+
+  paybuf = gst_buffer_new_allocate (NULL, payload_len, NULL);
+  gst_buffer_map (paybuf, &map, GST_MAP_WRITE);
+  memcpy (map.data, data, payload_len);
+  gst_buffer_unmap (paybuf, &map);
+
+  return gst_rtp_base_audio_payload_push_buffer (baseaudiopayload, paybuf,
+      timestamp);
+}
+
+/**
  * gst_rtp_base_audio_payload_flush:
  * @baseaudiopayload: a #GstRTPBasePayload
  * @payload_len: length of payload
@@ -556,19 +542,13 @@ GstFlowReturn
 gst_rtp_base_audio_payload_flush (GstRTPBaseAudioPayload * baseaudiopayload,
     guint payload_len, GstClockTime timestamp)
 {
-  GstRTPBasePayload *basepayload;
   GstRTPBaseAudioPayloadPrivate *priv;
-  GstBuffer *outbuf;
-  GstFlowReturn ret;
   GstAdapter *adapter;
   guint64 distance;
   GstBuffer *paybuf;
-  CopyMetaData data;
 
   priv = baseaudiopayload->priv;
   adapter = priv->adapter;
-
-  basepayload = GST_RTP_BASE_PAYLOAD (baseaudiopayload);
 
   if (payload_len == -1)
     payload_len = gst_adapter_available (adapter);
@@ -595,23 +575,10 @@ gst_rtp_base_audio_payload_flush (GstRTPBaseAudioPayload * baseaudiopayload,
   GST_DEBUG_OBJECT (baseaudiopayload, "Pushing %d bytes ts %" GST_TIME_FORMAT,
       payload_len, GST_TIME_ARGS (timestamp));
 
-  /* create buffer to hold the payload */
-  outbuf = gst_rtp_buffer_new_allocate (0, 0, 0);
-
   paybuf = gst_adapter_take_buffer_fast (adapter, payload_len);
 
-  data.pay = baseaudiopayload;
-  data.outbuf = outbuf;
-  gst_buffer_foreach_meta (paybuf, foreach_metadata, &data);
-  outbuf = gst_buffer_append (outbuf, paybuf);
-
-  /* set metadata */
-  gst_rtp_base_audio_payload_set_meta (baseaudiopayload, outbuf, payload_len,
+  return gst_rtp_base_audio_payload_push_buffer (baseaudiopayload, paybuf,
       timestamp);
-
-  ret = gst_rtp_base_payload_push (basepayload, outbuf);
-
-  return ret;
 }
 
 #define ALIGN_DOWN(val,len) ((val) - ((val) % (len)))
