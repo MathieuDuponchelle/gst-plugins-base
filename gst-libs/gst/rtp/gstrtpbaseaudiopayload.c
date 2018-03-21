@@ -158,6 +158,10 @@ static GstStateChangeReturn gst_rtp_base_payload_audio_change_state (GstElement
 static gboolean gst_rtp_base_payload_audio_sink_event (GstRTPBasePayload
     * payload, GstEvent * event);
 
+static gboolean
+gst_rtp_base_audio_payload_prepare_output_buffer (GstRTPBaseAudioPayload *
+    payload, GstBuffer * paybuf, GstBuffer ** outbuf);
+
 #define gst_rtp_base_audio_payload_parent_class parent_class
 G_DEFINE_TYPE (GstRTPBaseAudioPayload, gst_rtp_base_audio_payload,
     GST_TYPE_RTP_BASE_PAYLOAD);
@@ -191,6 +195,9 @@ gst_rtp_base_audio_payload_class_init (GstRTPBaseAudioPayloadClass * klass)
       GST_DEBUG_FUNCPTR (gst_rtp_base_audio_payload_handle_buffer);
   gstrtpbasepayload_class->sink_event =
       GST_DEBUG_FUNCPTR (gst_rtp_base_payload_audio_sink_event);
+
+  klass->prepare_output_buffer =
+      GST_DEBUG_FUNCPTR (gst_rtp_base_audio_payload_prepare_output_buffer);
 
   GST_DEBUG_CATEGORY_INIT (rtpbaseaudiopayload_debug, "rtpbaseaudiopayload", 0,
       "base audio RTP payloader");
@@ -460,11 +467,13 @@ gst_rtp_base_audio_payload_push_buffer (GstRTPBaseAudioPayload *
     baseaudiopayload, GstBuffer * buffer, GstClockTime timestamp)
 {
   GstRTPBasePayload *basepayload;
+  GstRTPBaseAudioPayloadClass *klass;
   GstBuffer *outbuf;
   guint payload_len;
   GstFlowReturn ret;
   CopyMetaData data;
 
+  klass = GST_RTP_BASE_AUDIO_PAYLOAD_GET_CLASS (baseaudiopayload);
   basepayload = GST_RTP_BASE_PAYLOAD (baseaudiopayload);
 
   payload_len = gst_buffer_get_size (buffer);
@@ -472,8 +481,11 @@ gst_rtp_base_audio_payload_push_buffer (GstRTPBaseAudioPayload *
   GST_DEBUG_OBJECT (baseaudiopayload, "Pushing %d bytes ts %" GST_TIME_FORMAT,
       payload_len, GST_TIME_ARGS (timestamp));
 
-  /* create just the RTP header buffer */
-  outbuf = gst_rtp_buffer_new_allocate (0, 0, 0);
+  if (!klass->prepare_output_buffer)
+    goto no_prepare_function;
+
+  if (!klass->prepare_output_buffer (baseaudiopayload, buffer, &outbuf))
+    goto prepare_failed;
 
   /* set metadata */
   gst_rtp_base_audio_payload_set_meta (baseaudiopayload, outbuf, payload_len,
@@ -483,12 +495,24 @@ gst_rtp_base_audio_payload_push_buffer (GstRTPBaseAudioPayload *
   data.pay = baseaudiopayload;
   data.outbuf = outbuf;
   gst_buffer_foreach_meta (buffer, foreach_metadata, &data);
-  outbuf = gst_buffer_append (outbuf, buffer);
 
   GST_DEBUG_OBJECT (baseaudiopayload, "Pushing buffer %p", outbuf);
   ret = gst_rtp_base_payload_push (basepayload, outbuf);
 
+done:
   return ret;
+
+no_prepare_function:
+  ret = GST_FLOW_ERROR;
+  GST_ELEMENT_ERROR (baseaudiopayload, STREAM, NOT_IMPLEMENTED, (NULL),
+      ("subclass did not implement prepare_output_buffer function"));
+  goto done;
+
+prepare_failed:
+  ret = GST_FLOW_ERROR;
+  GST_ELEMENT_ERROR (baseaudiopayload, STREAM, ENCODE, (NULL),
+      ("failed to prepare output buffer"));
+  goto done;
 }
 
 /**
@@ -943,4 +967,14 @@ gst_rtp_base_audio_payload_get_adapter (GstRTPBaseAudioPayload
     g_object_ref (adapter);
 
   return adapter;
+}
+
+static gboolean
+gst_rtp_base_audio_payload_prepare_output_buffer (GstRTPBaseAudioPayload *
+    payload, GstBuffer * paybuf, GstBuffer ** outbuf)
+{
+  *outbuf = gst_rtp_buffer_new_allocate (0, 0, 0);
+  *outbuf = gst_buffer_append (*outbuf, paybuf);
+
+  return TRUE;
 }

@@ -39,6 +39,9 @@ typedef struct _GstRTPBaseAudioPayloadPrivate GstRTPBaseAudioPayloadPrivate;
 #define GST_RTP_BASE_AUDIO_PAYLOAD_CLASS(klass) \
   (G_TYPE_CHECK_CLASS_CAST((klass), \
   GST_TYPE_RTP_BASE_AUDIO_PAYLOAD,GstRTPBaseAudioPayloadClass))
+#define GST_RTP_BASE_AUDIO_PAYLOAD_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), \
+  GST_TYPE_RTP_BASE_AUDIO_PAYLOAD, GstRTPBaseAudioPayloadClass))
 #define GST_IS_RTP_BASE_AUDIO_PAYLOAD(obj) \
   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_RTP_BASE_AUDIO_PAYLOAD))
 #define GST_IS_RTP_BASE_AUDIO_PAYLOAD_CLASS(klass) \
@@ -65,12 +68,18 @@ struct _GstRTPBaseAudioPayload
 /**
  * GstRTPBaseAudioPayloadClass:
  * @parent_class: the parent class
+ * @prepare_output_buffer: prepare the output RTP buffer and wrap the given
+ *  payload buffer
  *
  * Base class for audio RTP payloader.
  */
 struct _GstRTPBaseAudioPayloadClass
 {
   GstRTPBasePayloadClass parent_class;
+
+  gboolean (*prepare_output_buffer) (GstRTPBaseAudioPayload *payload,
+                                     GstBuffer *paybuf,
+                                     GstBuffer **outbuf);
 
   /*< private >*/
   gpointer _gst_reserved[GST_PADDING];
