@@ -1569,6 +1569,8 @@ gst_rtp_buffer_new_copy_data
 gst_rtp_buffer_new_allocate
 gst_rtp_buffer_new_allocate_len
 
+gst_rtp_buffer_initialize_header
+
 GstRTPBuffer
 GST_RTP_BUFFER_INIT
 GstRTPBufferFlags

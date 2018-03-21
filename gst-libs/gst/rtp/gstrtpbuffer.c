@@ -80,6 +80,72 @@ typedef struct _GstRTPHeader
 #define GST_RTP_HEADER_CSRC_SIZE(data)   (GST_RTP_HEADER_CSRC_COUNT(data) * sizeof (guint32))
 
 /**
+ * gst_rtp_buffer_initialize_header:
+ * @buffer: a #GstBuffer
+ * @pad_len: the amount of padding
+ * @csrc_count: the number of CSRC entries
+ *
+ * Write a RTP header in a buffer with pre-allocated data.
+ * The size of the buffer must be sufficient, the minimum size
+ * can be obtained with gst_rtp_buffer_calc_header_len()
+ *
+ * After this function has succeeded, gst_rtp_buffer_map() can
+ * be called on @buffer, thus allowing setting the header fields
+ * with useful values using the appropriate gst_rtp_buffer API.
+ *
+ * Returns: %TRUE if the header was succesfully written, %FALSE
+ * otherwise.
+ *
+ * Since: 1.16
+ */
+gboolean
+gst_rtp_buffer_initialize_header (GstBuffer * buffer, guint pad_len,
+    guint8 csrc_count)
+{
+  GstMapInfo map;
+  gboolean ret = FALSE;
+
+  if (csrc_count > 15) {
+    GST_ERROR ("Cannot initialize header with a %d csrc count", csrc_count);
+    goto done;
+  }
+
+  if (gst_buffer_get_size (buffer) <
+      gst_rtp_buffer_calc_header_len (csrc_count)) {
+    GST_ERROR ("buffer %" GST_PTR_FORMAT " has insufficient size", buffer);
+    goto done;
+  }
+
+  if (!gst_buffer_map (buffer, &map, GST_MAP_WRITE)) {
+    GST_ERROR ("Failed to map buffer %" GST_PTR_FORMAT, buffer);
+    goto done;
+  }
+
+  /* fill in defaults */
+  GST_RTP_HEADER_VERSION (map.data) = GST_RTP_VERSION;
+  if (pad_len)
+    GST_RTP_HEADER_PADDING (map.data) = TRUE;
+  else
+    GST_RTP_HEADER_PADDING (map.data) = FALSE;
+  GST_RTP_HEADER_EXTENSION (map.data) = FALSE;
+  GST_RTP_HEADER_CSRC_COUNT (map.data) = csrc_count;
+  memset (GST_RTP_HEADER_CSRC_LIST_OFFSET (map.data, 0), 0,
+      csrc_count * sizeof (guint32));
+  GST_RTP_HEADER_MARKER (map.data) = FALSE;
+  GST_RTP_HEADER_PAYLOAD_TYPE (map.data) = 0;
+  GST_RTP_HEADER_SEQ (map.data) = 0;
+  GST_RTP_HEADER_TIMESTAMP (map.data) = 0;
+  GST_RTP_HEADER_SSRC (map.data) = 0;
+
+  gst_buffer_unmap (buffer, &map);
+
+  ret = TRUE;
+
+done:
+  return ret;
+}
+
+/**
  * gst_rtp_buffer_allocate_data:
  * @buffer: a #GstBuffer
  * @payload_len: the length of the payload
@@ -110,25 +176,9 @@ gst_rtp_buffer_allocate_data (GstBuffer * buffer, guint payload_len,
 
   mem = gst_allocator_alloc (NULL, hlen, NULL);
 
-  gst_memory_map (mem, &map, GST_MAP_WRITE);
-  /* fill in defaults */
-  GST_RTP_HEADER_VERSION (map.data) = GST_RTP_VERSION;
-  if (pad_len)
-    GST_RTP_HEADER_PADDING (map.data) = TRUE;
-  else
-    GST_RTP_HEADER_PADDING (map.data) = FALSE;
-  GST_RTP_HEADER_EXTENSION (map.data) = FALSE;
-  GST_RTP_HEADER_CSRC_COUNT (map.data) = csrc_count;
-  memset (GST_RTP_HEADER_CSRC_LIST_OFFSET (map.data, 0), 0,
-      csrc_count * sizeof (guint32));
-  GST_RTP_HEADER_MARKER (map.data) = FALSE;
-  GST_RTP_HEADER_PAYLOAD_TYPE (map.data) = 0;
-  GST_RTP_HEADER_SEQ (map.data) = 0;
-  GST_RTP_HEADER_TIMESTAMP (map.data) = 0;
-  GST_RTP_HEADER_SSRC (map.data) = 0;
-  gst_memory_unmap (mem, &map);
-
   gst_buffer_append_memory (buffer, mem);
+
+  g_assert (gst_rtp_buffer_initialize_header (buffer, pad_len, csrc_count));
 
   if (payload_len) {
     mem = gst_allocator_alloc (NULL, payload_len, NULL);
