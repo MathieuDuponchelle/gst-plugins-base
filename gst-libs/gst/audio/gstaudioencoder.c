@@ -1089,12 +1089,9 @@ gst_audio_encoder_push_buffers (GstAudioEncoder * enc, gboolean force)
 
     priv->got_data = FALSE;
     if (G_LIKELY (need)) {
-      const guint8 *data;
-
-      data = gst_adapter_map (priv->adapter, priv->offset + need);
-      buf =
-          gst_buffer_new_wrapped_full (GST_MEMORY_FLAG_READONLY,
-          (gpointer) data, priv->offset + need, priv->offset, need, NULL, NULL);
+      buf = gst_adapter_get_buffer (priv->adapter, priv->offset + need);
+      if (priv->offset)
+        gst_buffer_resize (buf, priv->offset, need);
     } else if (!priv->drainable) {
       GST_DEBUG_OBJECT (enc, "non-drainable and no more data");
       goto finish;
@@ -1121,7 +1118,6 @@ gst_audio_encoder_push_buffers (GstAudioEncoder * enc, gboolean force)
 
     if (G_LIKELY (buf)) {
       gst_buffer_unref (buf);
-      gst_adapter_unmap (priv->adapter);
     }
 
   finish:
