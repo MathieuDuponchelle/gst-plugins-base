@@ -435,12 +435,12 @@ gst_rtp_base_depayload_handle_buffer (GstRTPBaseDepayload * filter,
     goto no_process;
   }
 
+  gst_buffer_unref (in);
+
   /* let's send it out to processing */
   if (out_buf) {
     ret = gst_rtp_base_depayload_push (filter, out_buf);
   }
-
-  gst_buffer_unref (in);
 
   return ret;
 
